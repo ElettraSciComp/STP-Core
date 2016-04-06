@@ -44,7 +44,7 @@
 #
 
 from numpy import float32, complex64, arange, ComplexWarning, finfo
-from numpy import copy, meshgrid
+from numpy import copy, meshgrid, real
 from numpy import pi, log as nplog, cos as npcos, sin as npsin
 
 # (Un)comment the related lines to use either NumPY or PyFFTW:
