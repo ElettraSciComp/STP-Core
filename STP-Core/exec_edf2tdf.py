@@ -87,7 +87,7 @@ def _read_edf(fname):
         logger.error('Unrecognized EDF data format')
         arr = None
 
-    return arr
+    return numpy.squeeze(arr)
 
 def _write_data(lock, im, index, offset, abs_offset, imfilename, timestamp, projorder, tot_files, 
 				provenance_dt, outfile, dsetname, outshape, outtype, logfilename, itime):    	      
@@ -126,15 +126,16 @@ def _write_data(lock, im, index, offset, abs_offset, imfilename, timestamp, proj
 
 		# Print out execution time:
 		log = open(logfilename,"a")
-		log.write(os.linesep + "\t%s processed (I: %0.3f sec - O: %0.3f sec)." % (os.path.basename(imfilename), itime, t1 - t0))
+		log.write(os.linesep + "\t%s processed (I: %0.3f sec - O: %0.3f sec)." 
+			% (os.path.basename(imfilename), itime, t1 - t0))
 		log.close()	
 
 	finally:
 		lock.release()	
 
 
-def _process(lock, int_from, int_to, offset, abs_offset, files, projorder, outfile, dsetname, outshape, outtype, 
-			crop_top, crop_bottom, crop_left, crop_right, tot_files, provenance_dt, logfilename):
+def _process(lock, int_from, int_to, offset, abs_offset, files, projorder, outfile, dsetname, outshape, 
+			outtype, crop_top, crop_bottom, crop_left, crop_right, tot_files, provenance_dt, logfilename):
 	"""To do...
 
 	"""
@@ -153,13 +154,13 @@ def _process(lock, int_from, int_to, offset, abs_offset, files, projorder, outfi
 		t1 = time.time() 					
 								
 		# Save processed image to HDF5 file (atomic procedure - lock used):
-		_write_data(lock, im, i, offset, abs_offset, files[i], t, projorder, tot_files, provenance_dt, 
-					outfile, dsetname, outshape, outtype, logfilename, t1 - t0)
+		_write_data(lock, im, i, offset, abs_offset, files[i], t, projorder, tot_files, 
+			provenance_dt, outfile, dsetname, outshape, outtype, logfilename, t1 - t0)
 
 
 def main(argv):          
 	"""
-	Converts a sequence of TIFF files into a TDF file (HDF5 Tomo Data Format).
+	Converts a sequence of EDF (ESRF Data Format) files into a TDF file (HDF5 Tomo Data Format).
 	    
 	Parameters
 	----------
@@ -174,7 +175,7 @@ def main(argv):
 		"to". If the value -1 is specified, all the projection files will be considered.
 		
 	in_path : string
-		path containing the sequence of TIFF files to consider (e.g. "Z:\\sample1\\tomo\\").
+		path containing the sequence of EDF files to consider (e.g. "Z:\\sample1\\tomo\\").
 		
 	out_file : string
 		path with filename of the TDF to create (e.g. "Z:\\sample1.tdf"). WARNING: the program 
@@ -199,21 +200,21 @@ def main(argv):
 		of pixels to crop from the right of the image. Leave 0 for no cropping.
 		
 	file_prefix : string
-		string to be assumed as the filename prefix of the TIFF files to consider for the projection (or 
+		string to be assumed as the filename prefix of the EDF files to consider for the projection (or 
 		sinogram) files. 	E.g. "tomo" will consider files having name "tomo_0001.tif", "tomo_0002.tif". 
 		
 	flat_prefix : string
-		string to be assumed as the filename prefix of the TIFF files to consider for the flat (white field)
+		string to be assumed as the filename prefix of the EDF files to consider for the flat (white field)
 		files. E.g. "flat" will consider files having name "flat_1.tif", "flat_2.tif". If dark or flat files have
 		to be skipped the string "-" can be specified.
 		
 	dark_prefix : string
-		string to be assumed as the filename prefix of the TIFF files to consider for the dark (dark field)
+		string to be assumed as the filename prefix of the EDF files to consider for the dark (dark field)
 		files. E.g. "dark" will consider files having name "dark_1.tif", "dark_2.tif". If dark or flat files have
 		to be skipped the string "-" can be specified.
 		
 	projection_order : boolean string
-		specify the string "True" if the TIFF files represent projections (the most common case), "False" 
+		specify the string "True" if the EDF files represent projections (the most common case), "False" 
 		for sinograms.
 		
 	privilege_sino : boolean string
@@ -245,7 +246,7 @@ def main(argv):
 	Requirements
 	-------
 	- Python 2.7 with the latest NumPy, SciPy, H5Py.
-	- EdfFile from PyMCA code.
+	- EdfFile from PyMca code (http://pymca.sourceforge.net).
 	- tdf.py
 	
 	Tests
@@ -414,7 +415,7 @@ def main(argv):
 		if not skipflat:		
 			num_flats = len(sorted(glob(inpath + flatprefix + '*.edf*')))			
 			num_darks = len(sorted(glob(inpath + darkprefix + '*.edf*')))	
-			num_HST = len(sorted(glob(inpath + '*HST*.edf*')))	
+			num_HST   = len(sorted(glob(inpath + '*HST*.edf*')))	
 			tot_files = tot_files + num_flats + num_darks - num_HST
 				
 		# Create provenance dataset:
@@ -477,7 +478,7 @@ def main(argv):
 				dset.attrs['axes'] = "theta:y:x"
 			f.close()
 			
-			#process(lock, 0, num_flats - 1, 0, flat_files, True, outfile, 'exchange/data_white', dsetshape, im.dtype, 
+			#_process(lock, 0, num_flats - 1, 0, 0, flat_files, True, outfile, 'exchange/data_white', flatshape, im.dtype, 
 			#	crop_top, crop_bottom, crop_left, crop_right, tot_files, provenance_dt, logfilename )
 				
 		else:	
@@ -514,8 +515,7 @@ def main(argv):
 				dset.attrs['axes'] = "theta:y:x"
 			f.close()		
 			
-			#process(lock, 0, num_darks - 1, num_flats, dark_files, True, outfile, 'exchange/data_dark', dsetshape, im.dtype, 
-			#	crop_top, crop_bottom, crop_left, crop_right,  tot_files, provenance_dt, logfilename )
+			#_process(lock, 0, num_darks - 1, num_flats, 0, dark_files, True, outfile, 'exchange/data_dark', darkshape,					#	im.dtype, crop_top, crop_bottom, crop_left, crop_right,  tot_files, provenance_dt, logfilename )
 
 		else:
 			
@@ -528,6 +528,7 @@ def main(argv):
 		flatdark_offset = num_flats + num_darks
 	else:
 		flatdark_offset = 0
+
 
 	# Spawn the process for the conversion of flat images:
 	Process(target=_process, args=(lock, 0, num_flats - 1, 0, 0, flat_files, True, outfile, 'exchange/data_white', 
@@ -545,11 +546,12 @@ def main(argv):
 		else:
 			end = ( (int_to - int_from + 1) / nr_threads)*(num + 1) + int_from - 1
 
-		Process(target=_process, args=(lock, start, end, flatdark_offset, int_from, tomo_files, projorder, outfile, 'exchange/data', 
-				datashape, im.dtype, crop_top, crop_bottom, crop_left, crop_right, tot_files, provenance_dt, logfilename )).start()
+		Process(target=_process, args=(lock, start, end, flatdark_offset, int_from, tomo_files, projorder, 
+			outfile, 'exchange/data', datashape, im.dtype, crop_top, crop_bottom, crop_left, crop_right, 
+			tot_files, provenance_dt, logfilename )).start()
 		
-		#process(lock, start, end, offset, tomo_files, projorder, outfile, 'exchange/data', 
-		#		datashape, im.dtype, crop_top, crop_bottom, crop_left, crop_right, tot_files, provenance_dt, logfilename )
+	#_process(lock, int_from, int_to, flatdark_offset, int_from, tomo_files, projorder, outfile, 'exchange/data', 
+	#	datashape, im.dtype, crop_top, crop_bottom, crop_left, crop_right, tot_files, provenance_dt, logfilename )
 	
 if __name__ == "__main__":
 	main(argv[1:])
