@@ -5,14 +5,19 @@
     <SchemaVersion>2.0</SchemaVersion>
     <ProjectGuid>397494a0-035b-4ad0-996a-2799fb86dfcf</ProjectGuid>
     <ProjectHome>.</ProjectHome>
-    <StartupFile>
-    </StartupFile>
+    <StartupFile>exec_edf2tdf.py</StartupFile>
     <SearchPath>
     </SearchPath>
     <WorkingDirectory>.</WorkingDirectory>
     <OutputPath>.</OutputPath>
     <Name>STP-Core</Name>
     <RootNamespace>STP-Core</RootNamespace>
+    <LaunchProvider>Standard Python launcher</LaunchProvider>
+    <InterpreterArguments>
+    </InterpreterArguments>
+    <EnableNativeCodeDebugging>False</EnableNativeCodeDebugging>
+    <InterpreterPath>C:\Users\Franz\Documents\Visual Studio 2012\Projects\STP-Gui\STP-Gui\bin\x64\Release\WinPython-64bit-2.7.10.3\python-2.7.10.amd64\python.exe</InterpreterPath>
+    <CommandLineArguments>0 -1 C:\Users\Franz\Downloads\EAE_1_001_ C:\Temp\datasetfromESRF.tdf 0 0 0 0 EAE_1_001_ ref dark True True -1 3 C:\Users\Franz\Downloads\log.txt</CommandLineArguments>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
     <DebugSymbols>true</DebugSymbols>
@@ -36,6 +41,7 @@
     <Folder Include="utils\" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="exec_edf2tdf.py" />
     <Compile Include="exec_his2tdf.py" />
     <Compile Include="exec_phaseretrieval.py" />
     <Compile Include="exec_postprocessing.py" />
@@ -43,6 +49,7 @@
     <Compile Include="exec_reconstruct.py" />
     <Compile Include="exec_tdf2tiff.py" />
     <Compile Include="exec_tiff2tdf.py" />
+    <Compile Include="io\EdfFile.py" />
     <Compile Include="io\tdf.py" />
     <Compile Include="io\__init__.py" />
     <Compile Include="phaseretrieval\phase_retrieval.py" />
