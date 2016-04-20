@@ -17,7 +17,7 @@
     </InterpreterArguments>
     <EnableNativeCodeDebugging>False</EnableNativeCodeDebugging>
     <InterpreterPath>C:\Users\Franz\Documents\Visual Studio 2012\Projects\STP-Gui\STP-Gui\bin\x64\Release\WinPython-64bit-2.7.10.3\python-2.7.10.amd64\python.exe</InterpreterPath>
-    <CommandLineArguments>0 -1 C:\Users\Franz\Downloads\EAE_1_001_ C:\Temp\datasetfromESRF.tdf 0 0 0 0 EAE_1_001_ ref dark True True -1 3 C:\Users\Franz\Downloads\log.txt</CommandLineArguments>
+    <CommandLineArguments>0 -1 C:\Users\Franz\Downloads\EAE_1_001_ C:\Temp\datasetfromESRF.tdf 0 0 0 0 EAE_1_001 ref dark True True -1 3 C:\Users\Franz\Downloads\log.txt</CommandLineArguments>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
     <DebugSymbols>true</DebugSymbols>
