@@ -191,19 +191,19 @@ def reconstruct(im, angles, offset, logtransform, param1, circle, scale, pad, me
 	return im.astype(float32)
 
 
-def _testwritedownsino(tmp_im):
+#def _testwritedownsino(tmp_im):
 
-	for ct in range(0, tmp_im.shape[0]):
-		a = tmp_im[ct,:,:].squeeze()			
-		fname = 'C:\\Temp\\StupidFolder\\sino_' + str(ct).zfill(4) + '.tif'
-		imsave(fname, a.astype(float32))
+#	for ct in range(0, tmp_im.shape[0]):
+#		a = tmp_im[ct,:,:].squeeze()			
+#		fname = 'C:\\Temp\\StupidFolder\\sino_' + str(ct).zfill(4) + '.tif'
+#		imsave(fname, a.astype(float32))
 
-def _testwritedownproj(tmp_im):
+#def _testwritedownproj(tmp_im):
 
-	for ct in range(0, tmp_im.shape[1]):
-		a = tmp_im[:,ct,:].squeeze()			
-		fname = 'C:\\Temp\\StupidFolder\\proj_' + str(ct).zfill(4) + '.tif'
-		imsave(fname, a.astype(float32))
+#	for ct in range(0, tmp_im.shape[1]):
+#		a = tmp_im[:,ct,:].squeeze()			
+#		fname = 'C:\\Temp\\StupidFolder\\proj_' + str(ct).zfill(4) + '.tif'
+#		imsave(fname, a.astype(float32))
 		
 def process(sino_idx, num_sinos, infile, outfile, preprocessing_required, corr_plan, norm_sx, norm_dx, flat_end, half_half, 
 			half_half_line, ext_fov, ext_fov_rot_right, ext_fov_overlap, ringrem, phaseretrieval_required, beta, delta, 

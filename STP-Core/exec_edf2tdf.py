@@ -139,6 +139,9 @@ def _process(lock, int_from, int_to, offset, abs_offset, files, projorder, outfi
 	"""To do...
 
 	"""
+	ct_left  = int_from
+	ct_right = int_to
+
 	# Process the required subset of images:
 	for i in range(int_from, int_to + 1):    
 		
@@ -149,12 +152,23 @@ def _process(lock, int_from, int_to, offset, abs_offset, files, projorder, outfi
 		# Crop:
 		im = im[crop_top:im.shape[0]-crop_bottom,crop_left:im.shape[1]-crop_right]	
 
-		# Get the timestamp:
-		t = os.path.getmtime(files[i])
-		t1 = time.time() 					
+		# Get the timestamp:		
+		t1 = time.time() 
+		
+		# Sort for time (i.e. before or after projections) in case of flat files:
+		t  = t1
+		
+		if ( (dsetname == 'exchange/data_white') and ( int(files[i][-8:-4]) != 0 ) ):
+			t  = t + 7*3600	
+			idx = ct_right
+			ct_right = ct_right - 1			
+		else:
+			idx = ct_left
+			ct_left  = ct_left + 1
+			
 								
 		# Save processed image to HDF5 file (atomic procedure - lock used):
-		_write_data(lock, im, i, offset, abs_offset, files[i], t, projorder, tot_files, 
+		_write_data(lock, im, idx, offset, abs_offset, files[i], t, projorder, tot_files, 
 			provenance_dt, outfile, dsetname, outshape, outtype, logfilename, t1 - t0)
 
 
@@ -478,8 +492,8 @@ def main(argv):
 				dset.attrs['axes'] = "theta:y:x"
 			f.close()
 			
-			#_process(lock, 0, num_flats - 1, 0, 0, flat_files, True, outfile, 'exchange/data_white', flatshape, im.dtype, 
-			#	crop_top, crop_bottom, crop_left, crop_right, tot_files, provenance_dt, logfilename )
+			_process(lock, 0, num_flats - 1, 0, 0, flat_files, True, outfile, 'exchange/data_white', flatshape, im.dtype, 
+				crop_top, crop_bottom, crop_left, crop_right, tot_files, provenance_dt, logfilename )
 				
 		else:	
 			log = open(logfilename,"a")
@@ -515,7 +529,7 @@ def main(argv):
 				dset.attrs['axes'] = "theta:y:x"
 			f.close()		
 			
-			#_process(lock, 0, num_darks - 1, num_flats, 0, dark_files, True, outfile, 'exchange/data_dark', darkshape,					#	im.dtype, crop_top, crop_bottom, crop_left, crop_right,  tot_files, provenance_dt, logfilename )
+			_process(lock, 0, num_darks - 1, num_flats, 0, dark_files, True, outfile, 'exchange/data_dark', darkshape,						im.dtype, crop_top, crop_bottom, crop_left, crop_right,  tot_files, provenance_dt, logfilename )
 
 		else:
 			
@@ -530,30 +544,30 @@ def main(argv):
 		flatdark_offset = 0
 
 
-	# Spawn the process for the conversion of flat images:
-	if ( num_flats > 0):
-		Process(target=_process, args=(lock, 0, num_flats - 1, 0, 0, flat_files, True, outfile, 'exchange/data_white', 
-			flatshape, im.dtype, crop_top, crop_bottom, crop_left, crop_right, tot_files, provenance_dt, logfilename )).start()
+	## Spawn the process for the conversion of flat images:
+	#if ( num_flats > 0):
+	#	Process(target=_process, args=(lock, 0, num_flats - 1, 0, 0, flat_files, True, outfile, 'exchange/data_white', 
+	#		flatshape, im.dtype, crop_top, crop_bottom, crop_left, crop_right, tot_files, provenance_dt, logfilename )).start()
 
-	# Spawn the process for the conversion of dark images:
-	if ( num_darks > 0):
-		Process(target=_process, args=(lock, 0, num_darks - 1, num_flats, 0, dark_files, True, outfile, 'exchange/data_dark', 
-			darkshape, im.dtype, crop_top, crop_bottom, crop_left, crop_right, tot_files, provenance_dt, logfilename )).start()
+	## Spawn the process for the conversion of dark images:
+	#if ( num_darks > 0):
+	#	Process(target=_process, args=(lock, 0, num_darks - 1, num_flats, 0, dark_files, True, outfile, 'exchange/data_dark', 
+	#		darkshape, im.dtype, crop_top, crop_bottom, crop_left, crop_right, tot_files, provenance_dt, logfilename )).start()
 
-	# Start the process for the conversion of the projections (or sinograms) in a multi-threaded way:
-	for num in range(nr_threads):
-		start = ( (int_to - int_from + 1) / nr_threads)*num + int_from
-		if (num == nr_threads - 1):
-			end = int_to
-		else:
-			end = ( (int_to - int_from + 1) / nr_threads)*(num + 1) + int_from - 1
+	## Start the process for the conversion of the projections (or sinograms) in a multi-threaded way:
+	#for num in range(nr_threads):
+	#	start = ( (int_to - int_from + 1) / nr_threads)*num + int_from
+	#	if (num == nr_threads - 1):
+	#		end = int_to
+	#	else:
+	#		end = ( (int_to - int_from + 1) / nr_threads)*(num + 1) + int_from - 1
 
-		Process(target=_process, args=(lock, start, end, flatdark_offset, int_from, tomo_files, projorder, 
-			outfile, 'exchange/data', datashape, im.dtype, crop_top, crop_bottom, crop_left, crop_right, 
-			tot_files, provenance_dt, logfilename )).start()
+	#	Process(target=_process, args=(lock, start, end, flatdark_offset, int_from, tomo_files, projorder, 
+	#		outfile, 'exchange/data', datashape, im.dtype, crop_top, crop_bottom, crop_left, crop_right, 
+	#		tot_files, provenance_dt, logfilename )).start()
 		
-	#_process(lock, int_from, int_to, flatdark_offset, int_from, tomo_files, projorder, outfile, 'exchange/data', 
-	#	datashape, im.dtype, crop_top, crop_bottom, crop_left, crop_right, tot_files, provenance_dt, logfilename )
+	_process(lock, int_from, int_to, flatdark_offset, int_from, tomo_files, projorder, outfile, 'exchange/data', 
+		datashape, im.dtype, crop_top, crop_bottom, crop_left, crop_right, tot_files, provenance_dt, logfilename )
 	
 if __name__ == "__main__":
 	main(argv[1:])
