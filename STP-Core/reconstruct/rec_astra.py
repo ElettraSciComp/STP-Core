@@ -92,7 +92,7 @@ def recon_astra_fbp(im, angles, method, filter_type):
 	#	cfg['option']['PixelSuperSampling'] = 2
 	
 	if not (method.endswith("CUDA")):
-		cfg.ProjectorId = proj_id # Only for CPU-based algorithms
+		cfg['ProjectorId'] = proj_id # Only for CPU-based algorithms
 
 	# Create and run the algorithm object from the configuration structure
 	alg_id = astra.algorithm.create(cfg)

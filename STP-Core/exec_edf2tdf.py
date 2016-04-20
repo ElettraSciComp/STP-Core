@@ -227,7 +227,7 @@ def main(argv):
 		The value 0 can be specified with the meaning of no compression.
 
 	nr_threads : int
-		number of multiple threads (actually processes) to consider to speed up the whole conversion process.
+		number of multiple threads (actually processes) to speed up the whole conversion process.
 		
 	log_file : string
 		path with filename of a log file (e.g. "R:\\log.txt") where info about the conversion is reported.
@@ -531,12 +531,14 @@ def main(argv):
 
 
 	# Spawn the process for the conversion of flat images:
-	Process(target=_process, args=(lock, 0, num_flats - 1, 0, 0, flat_files, True, outfile, 'exchange/data_white', 
-		flatshape, im.dtype, crop_top, crop_bottom, crop_left, crop_right, tot_files, provenance_dt, logfilename )).start()
+	if ( num_flats > 0):
+		Process(target=_process, args=(lock, 0, num_flats - 1, 0, 0, flat_files, True, outfile, 'exchange/data_white', 
+			flatshape, im.dtype, crop_top, crop_bottom, crop_left, crop_right, tot_files, provenance_dt, logfilename )).start()
 
 	# Spawn the process for the conversion of dark images:
-	Process(target=_process, args=(lock, 0, num_darks - 1, num_flats, 0, dark_files, True, outfile, 'exchange/data_dark', 
-		darkshape, im.dtype, crop_top, crop_bottom, crop_left, crop_right, tot_files, provenance_dt, logfilename )).start()
+	if ( num_darks > 0):
+		Process(target=_process, args=(lock, 0, num_darks - 1, num_flats, 0, dark_files, True, outfile, 'exchange/data_dark', 
+			darkshape, im.dtype, crop_top, crop_bottom, crop_left, crop_right, tot_files, provenance_dt, logfilename )).start()
 
 	# Start the process for the conversion of the projections (or sinograms) in a multi-threaded way:
 	for num in range(nr_threads):
