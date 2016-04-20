@@ -81,7 +81,7 @@ def recon_astra_fbp(im, angles, method, filter_type):
 	sinogram_id = astra.data2d.create('-sino', proj_geom, im)
 
 	# Create configuration:
-	cfg = astra.astra_dict('FBP_CUDA')
+	cfg = astra.astra_dict(method)
 	cfg['ReconstructionDataId'] = rec_id
 	cfg['ProjectionDataId'] = sinogram_id
 	cfg['FilterType'] = filter_type	
