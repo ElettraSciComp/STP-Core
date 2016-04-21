@@ -60,6 +60,63 @@ import io.EdfFile as EdfFile
 
 from multiprocessing import Process, Lock
 
+def _parse_metadata(f, info):
+	"""Fill the specified HDF5 file with metadata according to the DataExchange initiative.
+	The metadata in input are described in a XML format.
+
+	Parameters
+	----------
+	f : HDF5 file 
+		HDF5 file open with h5py API
+	info : list of strings
+		List of strings with metadata in the format 'Name= Value\n'.
+
+	"""
+	try:
+		# Create measurement group
+		measurement  = f.create_group( 'measurement' )
+		f.attrs['implements'] = "exchange:measurement:provenance"
+	
+		# Sample:
+		sample =  measurement.create_group( 'sample' )	
+		for i in range(0, len(info)):  
+			if ( info[i].startswith('Prefix')):		
+				item = info[i].split('=');	
+				item = item[-1].strip()
+				dset = sample.create_dataset('name', data = item)	
+		
+		# Instrument:
+		instrument =  measurement.create_group( 'instrument' )		
+		dset = instrument.create_dataset('name', data = 'ESRF - ID17')
+	
+		# Detector:
+		detector = instrument.create_group('detector')	
+		for i in range(0, len(info)):  
+			if ( info[i].startswith('PixelSize')):		
+				item = info[i].split('=');	
+				item = item[-1].strip()
+				dset = detector.create_dataset('pixel_size', data = float(item), dtype = 'f')
+				dset.attrs['units'] = 'micron'
+
+		for i in range(0, len(info)):  
+			if ( info[i].startswith('Distance')):		
+				item = info[i].split('=');	
+				item = item[-1].strip()
+				dset = detector.create_dataset('distance', data = float(item), dtype = 'f')
+				dset.attrs['units'] = 'mm'
+		
+		# Monochromator:
+		monoch = instrument.create_group('monochromator')	
+		for i in range(0, len(info)):  
+			if ( info[i].startswith('Energy')):		
+				item = info[i].split('=');	
+				item = item[-1].strip()
+				dset = monoch.create_dataset('energy', data = float(item), dtype = 'f')
+				dset.attrs['units'] = 'KeV'	
+
+	except:
+		pass
+
 
 def _read_edf(fname):
     """
@@ -444,10 +501,12 @@ def main(argv):
 		provenance_dset.attrs['first_index'] = int(tomo_files[0][-8:-4]);
 			
 		# Handle the metadata:
-		if (os.path.isfile(inpath + 'logfile.xml')):
-			with open (inpath + 'logfile.xml', "r") as file:
-				xml_command = file.read()
-			tdf.parse_metadata(f, xml_command)
+		info_files = glob(inpath + '*.info*')
+		if (len(info_files) > 0 ):
+			info_file = info_files[0]
+			with open(info_file) as info_f:
+				content = info_f.readlines()
+			_parse_metadata(f, content)
 					
 		f.close()						
 
