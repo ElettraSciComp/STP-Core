@@ -57,27 +57,19 @@ from tifffile import imread, imsave
 import io.tdf as tdf
 
 def main(argv):    
-	"""Extract a 2D image (projection or sinogram) from the input TDF file (DataExchange HDF5) and
-	creates a 32-bit RAW file to disk.
+	"""Computes min/max limits to be used in image degradation to 8-bit or 16-bit.
 
     Parameters
     ----------
     argv[0] : string
-		The absolute path of the input TDF.
+		The absolute path of the input folder containing reconstructed TIFF files.
 
-	argv[1] : int
-		The absolute path of output 32-bit TIFF image file.
-
-	argv[2] : bool
-		True to extract a projection, otherwise a sinogram is extracted.
-
-	argv[3] : string
-		The absolute path of the output 32-bit RAW image file. Filename will be modified by adding 
-		image width, image height, minimum and maximum value of the input TDF dataset.
+	argv[1] : string
+		The absolute path of the output txt file with the proposed limits as string "min:max".
 
 	Example
 	-------
-	tools_extractdata "S:\\dataset.tdf" 128 True "R:\\proj"	
+	tools_autolimit "S:\\SampleA\\slices" "R:\\Temp\\autolimit.txt"	
 
     """
 	try:

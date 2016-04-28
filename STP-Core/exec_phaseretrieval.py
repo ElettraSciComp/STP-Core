@@ -40,7 +40,7 @@
 
 #
 # Author: Francesco Brun
-# Last modified: April, 4th 2016
+# Last modified: April, 28th 2016
 #
 
 from sys import argv, exit
@@ -191,13 +191,18 @@ def main(argv):
 	log.close()			
 
 	im = tdf.read_tomo(dset,0).astype(float32)	
-	f_in.close()
+	
 
 	outshape = tdf.get_dset_shape(im.shape[1], im.shape[0], num_proj)			
 	f_out = getHDF5(outfile, 'w')
 	f_out_dset = f_out.create_dataset('exchange/data', outshape, im.dtype, chunks=tdf.get_dset_chunks(im.shape[1])) 
 	f_out_dset.attrs['min'] = str(amin(im[:]))
 	f_out_dset.attrs['max'] = str(amax(im[:]))
+	
+	f_out_dset.attrs['version'] = '1.0'
+	f_out_dset.attrs['axes'] = "y:theta:x"
+
+	f_in.close()
 	f_out.close()
 				
 	plan = prepare_plan (im, beta, delta, energy, distance, pixsize, padding=pad)

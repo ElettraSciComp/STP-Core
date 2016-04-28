@@ -40,7 +40,7 @@
 
 #
 # Author: Francesco Brun
-# Last modified: April, 4th 2016
+# Last modified: April, 28th 2016
 #
 
 from sys import argv, exit
@@ -258,6 +258,9 @@ def main(argv):
 		f_out_dset.attrs['max'] = str(amax(im[:]))
 		f_out.close()
 	
+	f_out_dset.attrs['version'] = '1.0'
+	f_out_dset.attrs['axes'] = "y:theta:x"
+
 	f_in.close()
 		
 	# Log infos:
