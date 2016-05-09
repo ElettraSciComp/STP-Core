@@ -49,7 +49,6 @@ from ringrem.rivers import rivers
 from ringrem.boinhaibel import boinhaibel
 from ringrem.munchetal import munchetal
 from ringrem.raven import raven
-from ringrem.miqueles import miqueles
 
 def ring_correction (im, ringrem, flat_end, skip_flat_after, half_half, half_half_line, ext_fov):
 	"""Apply ring artifacts compensation by de-striping the input sinogram.

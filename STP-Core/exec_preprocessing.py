@@ -239,28 +239,24 @@ def main(argv):
 		# Perform pre-processing (flat fielding, extended FOV, ring removal):	
 		im = flat_fielding(im, idx, plan, flat_end, half_half, half_half_line, norm_sx, norm_dx)			
 		im = extfov_correction(im, ext_fov, ext_fov_rot_right, ext_fov_overlap)
-		im = ring_correction (im, ringrem, flat_end, plan['skip_flat_after'], half_half, half_half_line, ext_fov)					
-	
-		# Write down reconstructed preview file (file name modified with metadata):		
-		outshape = tdf.get_dset_shape(im.shape[1], num_sinos, im.shape[0])			
-		f_out = getHDF5(outfile, 'w')
-		f_out_dset = f_out.create_dataset('exchange/data', outshape, im.dtype, chunks=tdf.get_dset_chunks(im.shape[1])) 
-		f_out_dset.attrs['min'] = str(amin(im[:]))
-		f_out_dset.attrs['max'] = str(amax(im[:]))
-		f_out.close()
+		im = ring_correction (im, ringrem, flat_end, plan['skip_flat_after'], half_half, half_half_line, ext_fov)						
+		# Get the corrected outshape:		
+		outshape = tdf.get_dset_shape(im.shape[1], num_sinos, im.shape[0])		
 
 	else:
+		# Get the corrected outshape (in this case it's easy):
 		im = tdf.read_tomo(dset,0).astype(float32)	
 		outshape = tdf.get_dset_shape(im.shape[1], im.shape[0], num_proj)			
-		f_out = getHDF5(outfile, 'w')
-		f_out_dset = f_out.create_dataset('exchange/data', outshape, im.dtype, chunks=tdf.get_dset_chunks(im.shape[1])) 
-		f_out_dset.attrs['min'] = str(amin(im[:]))
-		f_out_dset.attrs['max'] = str(amax(im[:]))
-		f_out.close()
 	
+	# Create the output HDF5 file:	
+	f_out = getHDF5(outfile, 'w')
+	f_out_dset = f_out.create_dataset('exchange/data', outshape, im.dtype, chunks=tdf.get_dset_chunks(im.shape[1])) 
+	f_out_dset.attrs['min'] = str(amin(im[:]))
+	f_out_dset.attrs['max'] = str(amax(im[:]))
 	f_out_dset.attrs['version'] = '1.0'
 	f_out_dset.attrs['axes'] = "y:theta:x"
 
+	f_out.close()
 	f_in.close()
 		
 	# Log infos:

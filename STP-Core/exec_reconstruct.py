@@ -600,7 +600,7 @@ def main(argv):
 	infile = argv[2]
 	outpath = argv[3]
 
-	# Essential reconstruction parameters::
+	# Essential reconstruction parameters:
 	angles = float(argv[4])
 	offset = float(argv[5])
 	param1 = argv[6]	

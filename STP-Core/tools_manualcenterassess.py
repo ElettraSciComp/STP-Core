@@ -45,12 +45,12 @@
 
 # python:
 from sys import argv, exit
-from os import remove, sep, linesep, listdir
+from os import remove, sep, linesep, listdir, makedirs
 from os.path import exists, dirname, basename, splitext
 from numpy import array, finfo, copy, float32, double, amin, amax, tile, concatenate, asarray
 from numpy import empty, reshape, log as nplog, arange, squeeze, fromfile, ndarray, where, meshgrid
 from time import time
-from multiprocessing import Process, Array
+from multiprocessing import Process, Lock
 
 # pystp-specific:
 from preprocess.extfov_correction import extfov_correction
@@ -77,8 +77,23 @@ from h5py import File as getHDF5
 import io.tdf as tdf
 
 
+def write_log(lock, fname, logfilename):    	      
+	"""To do...
+
+	"""
+	lock.acquire()
+	try: 
+		# Print out execution time:
+		log = open(logfilename,"a")
+		log.write(linesep + "\t%s reconstructed." % basename(fname))
+		log.close()	
+
+	finally:
+		lock.release()	
+
 def reconstruct(im, angles, offset, logtransform, param1, circle, scale, pad, method, 
-				zerone_mode, dset_min, dset_max, corr_offset):
+				zerone_mode, dset_min, dset_max, corr_offset, postprocess_required, convert_opt, 
+			    crop_opt, start, end, outpath, sino_idx, downsc_factor, logfilename, lock):
 	"""Reconstruct a sinogram with FBP algorithm (from ASTRA toolbox).
 
 	Parameters
@@ -101,7 +116,8 @@ def reconstruct(im, angles, offset, logtransform, param1, circle, scale, pad, me
 		circle (default=False).	
 	
 	"""
-	offset = int(round(offset))
+	# Copy required due to multithreading:
+	im_f = im
 
 	# Decimate projections if required:
 	#if decim_factor > 1:
@@ -109,110 +125,129 @@ def reconstruct(im, angles, offset, logtransform, param1, circle, scale, pad, me
 	
 	# Upscale projections (if required):
 	if (abs(scale - 1.0) > finfo(float32).eps):		
-		siz_orig1 = im.shape[1]		
-		im = imresize(im, (im.shape[0], int(round(scale * im.shape[1]))), interp='bicubic', mode='F')
-		offset = int(offset * scale)		
+		siz_orig1 = im_f.shape[1]		
+		im_f = imresize(im_f, (im_f.shape[0], int(round(scale * im_f.shape[1]))), interp='bicubic', mode='F')
+		offset = int(offset * scale)	
+
+	# Loop for all the required offsets for the center of rotation:
+	for i in range(int(round(start)), int(round(end)) + 1, downsc_factor):      	
+		
+		offset = int(round(i/downsc_factor))
+
+		# Apply transformation for changes in the center of rotation:
+		if (offset != 0):
+			if (offset >= 0):
+				im_f = im_f[:,:-offset]
 			
-	# Apply transformation for changes in the center of rotation:
-	if (offset != 0):
-		if (offset >= 0):
-			im = im[:,:-offset]
-			
-			tmp = im[:,0] # Get first column
-			tmp = tile(tmp, (offset,1)) # Replicate the first column the right number of times
-			im = concatenate((tmp.T,im), axis=1) # Concatenate tmp before the image
+				tmp = im_f[:,0] # Get first column
+				tmp = tile(tmp, (offset,1)) # Replicate the first column the right number of times
+				im_f = concatenate((tmp.T,im_f), axis=1) # Concatenate tmp before the image
 						
+			else:
+				im_f = im_f[:,abs(offset):] 	
+			
+				tmp = im_f[:,im_f.shape[1] - 1] # Get last column
+				tmp = tile(tmp, (abs(offset),1)) # Replicate the last column the right number of times
+				im_f = concatenate((im_f,tmp.T), axis=1) # Concatenate tmp after the image	
+	
+		# Downscale projections (without pixel averaging):
+		#if downsc_factor > 1:
+		#	im = im[:,::downsc_factor]			
+			
+		# Scale image to [0,1] range (if required):
+		if (zerone_mode):
+		
+			#print dset_min
+			#print dset_max
+			#print numpy.amin(im_f[:])
+			#print numpy.amax(im_f[:])
+			#im_f = (im_f - dset_min) / (dset_max - dset_min)
+		
+			# Cheating the whole process:
+			im_f = (im_f - numpy.amin(im_f[:])) / (numpy.amax(im_f[:]) - numpy.amin(im_f[:]))
+			
+		# Apply log transform:
+		if (logtransform == True):						
+			im_f[im_f <= finfo(float32).eps] = finfo(float32).eps
+			im_f = -nplog(im_f + corr_offset)	
+	
+		# Replicate pad image to double the width:
+		if (pad):	
+
+			dim_o = im_f.shape[1]		
+			n_pad = im_f.shape[1] + im_f.shape[1] / 2					
+			marg  = (n_pad - dim_o) / 2	
+	
+			# Pad image:
+			im_f = padSino(im_f, n_pad)		
+	
+		# Perform the actual reconstruction:
+		if (method.startswith('FBP')):
+			im_f = recon_astra_fbp(im_f, angles, method, param1)	
+		elif (method == 'MR-FBP_CUDA'):
+			im_f = recon_mr_fbp(im_f, angles)
+		elif (method == 'FISTA-TV_CUDA'):
+			im_f = recon_fista_tv(im_f, angles, param1, param1)
+		elif (method == 'MLEM'):
+			im_f = recon_tomopy_iterative(im_f, angles, method, param1)	
+		elif (method == 'SCIKIT-FBP'):
+			im_f = recon_scikit_fbp(im_f, angles, param1)
+		elif (method == 'GRIDREC'):
+			[im_f, im_f] = recon_gridrec(im_f, im_f, angles, param1)	
+		elif (method == 'SCIKIT-SART'):
+			im_f = recon_scikit_sart(im_f, angles, param1)	
 		else:
-			im = im[:,abs(offset):] 	
-			
-			tmp = im[:,im.shape[1] - 1] # Get last column
-			tmp = tile(tmp, (abs(offset),1)) # Replicate the last column the right number of times
-			im = concatenate((im,tmp.T), axis=1) # Concatenate tmp after the image	
-	
-	# Downscale projections (without pixel averaging):
-	#if downsc_factor > 1:
-	#	im = im[:,::downsc_factor]			
-			
-	# Scale image to [0,1] range (if required):
-	if (zerone_mode):
-		
-		#print dset_min
-		#print dset_max
-		#print numpy.amin(im_f[:])
-		#print numpy.amax(im_f[:])
-		#im_f = (im_f - dset_min) / (dset_max - dset_min)
-		
-		# Cheating the whole process:
-		im = (im - numpy.amin(im[:])) / (numpy.amax(im[:]) - numpy.amin(im[:]))
-			
-	# Apply log transform:
-	if (logtransform == True):						
-		im[im <= finfo(float32).eps] = finfo(float32).eps
-		im = -nplog(im + corr_offset)	
-	
-	# Replicate pad image to double the width:
-	if (pad):	
-
-		dim_o = im.shape[1]		
-		n_pad = im.shape[1] + im.shape[1] / 2					
-		marg  = (n_pad - dim_o) / 2	
-	
-		# Pad image:
-		im = padSino(im, n_pad)		
-	
-	# Perform the actual reconstruction:
-	if (method.startswith('FBP')):
-		im = recon_astra_fbp(im, angles, method, param1)	
-	elif (method == 'MR-FBP_CUDA'):
-		im = recon_mr_fbp(im, angles)
-	elif (method == 'FISTA-TV_CUDA'):
-		im = recon_fista_tv(im, angles, param1, param1)
-	elif (method == 'MLEM'):
-		im = recon_tomopy_iterative(im, angles, method, param1)	
-	elif (method == 'SCIKIT-FBP'):
-		im = recon_scikit_fbp(im, angles, param1)
-	elif (method == 'GRIDREC'):
-		[im, im] = recon_gridrec(im, im, angles, param1)	
-	elif (method == 'SCIKIT-SART'):
-		im = recon_scikit_sart(im, angles, param1)	
-	else:
-		im = recon_astra_iterative(im, angles, method, param1, zerone_mode)	
+			im_f = recon_astra_iterative(im_f, angles, method, param1, zerone_mode)	
 
 		
-	# Crop:
-	if (pad):		
-		im = im[marg:dim_o + marg, marg:dim_o + marg]			
+		# Crop:
+		if (pad):		
+			im_f = im_f[marg:dim_o + marg, marg:dim_o + marg]			
 
-	# Resize (if necessary):
-	if (abs(scale - 1.0) > finfo(float32).eps):
-		im = imresize(im, (siz_orig1, siz_orig1), interp='nearest', mode='F')
+		# Resize (if necessary):
+		if (abs(scale - 1.0) > finfo(float32).eps):
+			im_f = imresize(im_f, (siz_orig1, siz_orig1), interp='nearest', mode='F')
 
-	# Return output:
-	return im.astype(float32)
+		# Apply post-processing (if required):
+		if postprocess_required:
+			im_f = postprocess(im_f, convert_opt, crop_opt)
+		else:
+			# Create the circle mask for fancy output:
+			if (circle == True):
+				siz = im_f.shape[1]
+				if siz % 2:
+					rang = arange(-siz / 2 + 1, siz / 2 + 1)
+				else:
+					rang = arange(-siz / 2,siz / 2)
+				x,y = meshgrid(rang,rang)
+				z = x ** 2 + y ** 2
+				a = (z < (siz / 2 - int(round(abs(offset)/downsc_factor)) ) ** 2)
+				im_f = im_f * a			
 
+		# Write down reconstructed image (file name modified with metadata):		
+		if ( i >= 0 ):
+			fname = outpath + 'slice_' + str(sino_idx).zfill(4) + '_col=' + str((im_f.shape[1] + offset)*downsc_factor).zfill(4) + '_off=+' + str(abs(offset*downsc_factor)).zfill(4) + '.tif'
+		else:
+			fname = outpath + 'slice_' + str(sino_idx).zfill(4) + '_col=' + str((im_f.shape[1] + offset)*downsc_factor).zfill(4) + '_off=-' + str(abs(offset*downsc_factor)).zfill(4) + '.tif'
+		imsave(fname, im_f)	
 
-#def _testwritedownsino(tmp_im):
+		# Restore original image for next step:
+		im_f = im
 
-#	for ct in range(0, tmp_im.shape[0]):
-#		a = tmp_im[ct,:,:].squeeze()			
-#		fname = 'C:\\Temp\\StupidFolder\\sino_' + str(ct).zfill(4) + '.tif'
-#		imsave(fname, a.astype(float32))
+		# Write log (atomic procedure - lock used):
+		write_log(lock, fname, logfilename )
 
-#def _testwritedownproj(tmp_im):
-
-#	for ct in range(0, tmp_im.shape[1]):
-#		a = tmp_im[:,ct,:].squeeze()			
-#		fname = 'C:\\Temp\\StupidFolder\\proj_' + str(ct).zfill(4) + '.tif'
-#		imsave(fname, a.astype(float32))
 		
-def process(sino_idx, num_sinos, infile, outfile, preprocessing_required, corr_plan, norm_sx, norm_dx, flat_end, half_half, 
+def process(sino_idx, num_sinos, infile, outpath, preprocessing_required, corr_plan, norm_sx, norm_dx, flat_end, half_half, 
 			half_half_line, ext_fov, ext_fov_rot_right, ext_fov_overlap, ringrem, phaseretrieval_required, beta, delta, 
 			energy, distance, pixsize, phrtpad, approx_win, angles, offset, logtransform, param1, circle, scale, pad, method, 
 			zerone_mode, dset_min, dset_max, decim_factor, downsc_factor, corr_offset, postprocess_required, convert_opt, 
-			crop_opt, nr_threads, logfilename):
+			crop_opt, nr_threads, off_from, off_to, logfilename, lock):
 	"""To do...
 
 	"""
+	slice_nr = sino_idx
+	
 	# Perform reconstruction (on-the-fly preprocessing and phase retrieval, if required):
 	if (phaseretrieval_required):
 		
@@ -312,38 +347,34 @@ def process(sino_idx, num_sinos, infile, outfile, preprocessing_required, corr_p
 			im = flat_fielding (im, sino_idx, corr_plan, flat_end, half_half, half_half_line/decim_factor, 
 								norm_sx, norm_dx).astype(float32)		
 			im = extfov_correction (im, ext_fov, ext_fov_rot_right, ext_fov_overlap)
-			#imsave('C:\\Temp\\StupidFolder\\sinoprimaringrem.tif', im.astype(float32))
 			im = ring_correction (im, ringrem, flat_end, corr_plan['skip_flat_after'], half_half, 
 								half_half_line/decim_factor, ext_fov)
-			#imsave('C:\\Temp\\StupidFolder\\sinodoporingrem.tif', im.astype(float32))
+
+	# Log infos:
+	log = open(logfilename,"a")	
+	log.write(linesep + "\tPerforming reconstruction with multiple centers of rotation...")			
+	log.write(linesep + "\t--------------")		
+	log.close()	
+
+	# Split the computation into multiple processes:
+	for num in range(nr_threads):
+		start = ( (off_to - off_from + 1) / nr_threads)*num + off_from
+		if (num == nr_threads - 1):
+			end = off_to
+		else:
+			end = ( (off_to - off_from + 1) / nr_threads)*(num + 1) + off_from - 1
+
+		Process(target=reconstruct, args=(im, angles, offset/downsc_factor, logtransform, param1, circle, scale, pad, method, 
+						zerone_mode, dset_min, dset_max, corr_offset, postprocess_required, convert_opt, 
+						crop_opt, start, end, outpath, slice_nr, downsc_factor, logfilename, lock)).start()
 
 
-	# Actual reconstruction:
-	im = reconstruct(im, angles, offset/downsc_factor, logtransform, param1, circle, scale, pad, method, 
-					zerone_mode, dset_min, dset_max, corr_offset).astype(float32)	
+		# Actual reconstruction:
+		#reconstruct(im, angles, offset/downsc_factor, logtransform, param1, circle, scale, pad, method, 
+		#				zerone_mode, dset_min, dset_max, corr_offset, postprocess_required, convert_opt, 
+		#				crop_opt, start, end, outpath, slice_nr, downsc_factor, logfilename, lock)
 
-	# Apply post-processing (if required):
-	if postprocess_required:
-		im = postprocess(im, convert_opt, crop_opt)
-	else:
-		# Create the circle mask for fancy output:
-		if (circle == True):
-			siz = im.shape[1]
-			if siz % 2:
-				rang = arange(-siz / 2 + 1, siz / 2 + 1)
-			else:
-				rang = arange(-siz / 2,siz / 2)
-			x,y = meshgrid(rang,rang)
-			z = x ** 2 + y ** 2
-			a = (z < (siz / 2 - int(round(abs(offset)/downsc_factor)) ) ** 2)
-			im = im * a			
-
-    # Write down reconstructed preview file (file name modified with metadata):		
-	im = im.astype(float32)
-	outfile = outfile + '_' + str(im.shape[1]) + 'x' + str(im.shape[0]) + '_' + str( amin(im)) + '$' + str( amax(im) )	
-	im.tofile(outfile)	
-								
-	#print "With %d thread(s): [%0.3f sec, %0.3f sec, %0.3f sec]." % (nr_threads, t1-t0, t2-t1, t3-t2)	
+										
 
 
 def main(argv):          
@@ -367,6 +398,7 @@ def main(argv):
 	9.0 10.0 0.0 0.0 0.0 true sino slice C:\Temp\Dullin_Aug_2012\sino_noflat\tomo_conv flat dark
 
 	"""
+	lock = Lock()
 	skip_flat = False
 	skip_flat_after = True	
 
@@ -374,18 +406,18 @@ def main(argv):
 	sino_idx = int(argv[0])
 	   
 	# Get paths:
-	infile = argv[1]
-	outfile = argv[2]
+	infile  = argv[1]
+	outpath = argv[2]
 
 	# Essential reconstruction parameters::
-	angles = float(argv[3])
-	offset = float(argv[4])
-	param1 = argv[5]	
-	scale  = int(float(argv[6]))
+	angles   = float(argv[3])
+	off_step = float(argv[4])
+	param1   = argv[5]	
+	scale    = int(float(argv[6]))
 	
-	overpad = True if argv[7] == "True" else False
-	logtrsf = True if argv[8] == "True" else False
-	circle = True if argv[9] == "True" else False
+	overpad  = True if argv[7] == "True" else False
+	logtrsf  = True if argv[8] == "True" else False
+	circle   = True if argv[9] == "True" else False
 	
 	# Parameters for on-the-fly pre-processing:
 	preprocessing_required = True if argv[10] == "True" else False		
@@ -441,10 +473,26 @@ def main(argv):
 	preprocessingplan_fromcache = True if argv[37] == "True" else False
 	
 	nr_threads = int(argv[38])	
-	tmppath = argv[39]	
+	off_from   = float(argv[39])
+	off_to     = float(argv[40])
+	tmppath    = argv[41]	
 	if not tmppath.endswith(sep): tmppath += sep
 		
-	logfilename = argv[40]		
+	logfilename = argv[42]	
+
+	if not exists(outpath):
+		makedirs(outpath)
+	
+	if not outpath.endswith(sep): outpath += sep	
+
+
+	# Log info:
+	log = open(logfilename,"w")
+	log.write(linesep + "\tInput dataset: %s" % (infile))	
+	log.write(linesep + "\tOutput path: %s" % (outpath))		
+	log.write(linesep + "\t--------------")		
+	log.write(linesep + "\tLoading flat and dark images...")	
+	log.close()	
 			
 	# Open the HDF5 file:
 	f_in = getHDF5(infile, 'r')
@@ -502,17 +550,23 @@ def main(argv):
 		if isinstance(corrplan['im_dark_after'], ndarray):
 			corrplan['im_dark_after'] = corrplan['im_dark_after'][::downsc_factor,::downsc_factor]			
 
-	f_in.close()			
+	f_in.close()	
+
+	# Log infos:
+	log = open(logfilename,"a")
+	log.write(linesep + "\tPerforming preprocessing...")			
+	log.close()			
 
 	# Run computation:	
-	process( sino_idx, num_sinos, infile, outfile, preprocessing_required, corrplan, norm_sx, 
+	process( sino_idx, num_sinos, infile, outpath, preprocessing_required, corrplan, norm_sx, 
 				norm_dx, flat_end, half_half, half_half_line, ext_fov, ext_fov_rot_right, ext_fov_overlap, ringrem, 
-				phaseretrieval_required, beta, delta, energy, distance, pixsize, phrtpad, approx_win, angles, offset, 
+				phaseretrieval_required, beta, delta, energy, distance, pixsize, phrtpad, approx_win, angles, off_step, 
 				logtrsf, param1, circle, scale, overpad, reconmethod, zerone_mode, dset_min, dset_max, decim_factor, 
-				downsc_factor, corr_offset, postprocess_required, convert_opt, crop_opt, nr_threads, logfilename )		
+				downsc_factor, corr_offset, postprocess_required, convert_opt, crop_opt, nr_threads, off_from, off_to,
+				logfilename, lock )		
 
 	# Sample:
-	# 311 C:\Temp\BrunGeorgos.tdf C:\Temp\BrunGeorgos.raw 3.1416 -31.0 shepp-logan 1.0 False False True True True True 5 False False 100 0 0 False rivers:11;0 False 0.0 FBP_CUDA 1 1 False - - True 1.0 1000.0 22 150 2.2 True 16 True 2 C:\Temp\StupidFolder C:\Temp\log_00.txt
+	# 311 C:\Temp\BrunGeorgos.tdf C:\Temp\BrunGeorgos.raw 3.1416 -31.0 shepp-logan 1.0 False False True True True True 5 False False 100 0 0 False rivers:11;0 False 0.0 FBP_CUDA - 1 1 False - - True 1.0 1000.0 22 150 2.2 True 16 True 2 C:\Temp\StupidFolder C:\Temp\log_00.txt
 
 
 
