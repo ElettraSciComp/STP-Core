@@ -93,7 +93,7 @@ def write_log(lock, fname, logfilename):
 
 def reconstruct(im, angles, offset, logtransform, param1, circle, scale, pad, method, 
 				zerone_mode, dset_min, dset_max, corr_offset, postprocess_required, convert_opt, 
-			    crop_opt, start, end, outpath, sino_idx, downsc_factor, logfilename, lock):
+			    crop_opt, start, end, outpath, sino_idx, downsc_factor, logfilename, lock, slice_prefix):
 	"""Reconstruct a sinogram with FBP algorithm (from ASTRA toolbox).
 
 	Parameters
@@ -226,9 +226,9 @@ def reconstruct(im, angles, offset, logtransform, param1, circle, scale, pad, me
 
 		# Write down reconstructed image (file name modified with metadata):		
 		if ( i >= 0 ):
-			fname = outpath + 'slice_' + str(sino_idx).zfill(4) + '_col=' + str((im_f.shape[1] + offset)*downsc_factor).zfill(4) + '_off=+' + str(abs(offset*downsc_factor)).zfill(4) + '.tif'
+			fname = outpath + slice_prefix + '_' + str(sino_idx).zfill(4) + '_col=' + str((im_f.shape[1] + offset)*downsc_factor).zfill(4) + '_off=+' + str(abs(offset*downsc_factor)).zfill(4) + '.tif'
 		else:
-			fname = outpath + 'slice_' + str(sino_idx).zfill(4) + '_col=' + str((im_f.shape[1] + offset)*downsc_factor).zfill(4) + '_off=-' + str(abs(offset*downsc_factor)).zfill(4) + '.tif'
+			fname = outpath + slice_prefix + '_' + str(sino_idx).zfill(4) + '_col=' + str((im_f.shape[1] + offset)*downsc_factor).zfill(4) + '_off=-' + str(abs(offset*downsc_factor)).zfill(4) + '.tif'
 		imsave(fname, im_f)	
 
 		# Restore original image for next step:
@@ -242,7 +242,7 @@ def process(sino_idx, num_sinos, infile, outpath, preprocessing_required, corr_p
 			half_half_line, ext_fov, ext_fov_rot_right, ext_fov_overlap, ringrem, phaseretrieval_required, beta, delta, 
 			energy, distance, pixsize, phrtpad, approx_win, angles, offset, logtransform, param1, circle, scale, pad, method, 
 			zerone_mode, dset_min, dset_max, decim_factor, downsc_factor, corr_offset, postprocess_required, convert_opt, 
-			crop_opt, nr_threads, off_from, off_to, logfilename, lock):
+			crop_opt, nr_threads, off_from, off_to, logfilename, lock, slice_prefix):
 	"""To do...
 
 	"""
@@ -366,7 +366,7 @@ def process(sino_idx, num_sinos, infile, outpath, preprocessing_required, corr_p
 
 		Process(target=reconstruct, args=(im, angles, offset/downsc_factor, logtransform, param1, circle, scale, pad, method, 
 						zerone_mode, dset_min, dset_max, corr_offset, postprocess_required, convert_opt, 
-						crop_opt, start, end, outpath, slice_nr, downsc_factor, logfilename, lock)).start()
+						crop_opt, start, end, outpath, slice_nr, downsc_factor, logfilename, lock, slice_prefix)).start()
 
 
 		# Actual reconstruction:
@@ -471,14 +471,16 @@ def main(argv):
 	approx_win = int(argv[36])	
 
 	preprocessingplan_fromcache = True if argv[37] == "True" else False
-	
-	nr_threads = int(argv[38])	
-	off_from   = float(argv[39])
-	off_to     = float(argv[40])
-	tmppath    = argv[41]	
+	tmppath    = argv[38]	
 	if not tmppath.endswith(sep): tmppath += sep
+
+	nr_threads = int(argv[39])	
+	off_from   = float(argv[40])
+	off_to     = float(argv[41])
+
+	slice_prefix = argv[42]
 		
-	logfilename = argv[42]	
+	logfilename = argv[43]	
 
 	if not exists(outpath):
 		makedirs(outpath)
@@ -563,7 +565,7 @@ def main(argv):
 				phaseretrieval_required, beta, delta, energy, distance, pixsize, phrtpad, approx_win, angles, off_step, 
 				logtrsf, param1, circle, scale, overpad, reconmethod, zerone_mode, dset_min, dset_max, decim_factor, 
 				downsc_factor, corr_offset, postprocess_required, convert_opt, crop_opt, nr_threads, off_from, off_to,
-				logfilename, lock )		
+				logfilename, lock, slice_prefix )		
 
 	# Sample:
 	# 311 C:\Temp\BrunGeorgos.tdf C:\Temp\BrunGeorgos.raw 3.1416 -31.0 shepp-logan 1.0 False False True True True True 5 False False 100 0 0 False rivers:11;0 False 0.0 FBP_CUDA - 1 1 False - - True 1.0 1000.0 22 150 2.2 True 16 True 2 C:\Temp\StupidFolder C:\Temp\log_00.txt

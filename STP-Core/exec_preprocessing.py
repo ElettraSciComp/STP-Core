@@ -250,7 +250,7 @@ def main(argv):
 	
 	# Create the output HDF5 file:	
 	f_out = getHDF5(outfile, 'w')
-	f_out_dset = f_out.create_dataset('exchange/data', outshape, im.dtype, chunks=tdf.get_dset_chunks(im.shape[1])) 
+	f_out_dset = f_out.create_dataset('exchange/data', outshape, im.dtype) 
 	f_out_dset.attrs['min'] = str(amin(im[:]))
 	f_out_dset.attrs['max'] = str(amax(im[:]))
 	f_out_dset.attrs['version'] = '1.0'

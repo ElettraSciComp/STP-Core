@@ -441,7 +441,7 @@ def main(argv):
 	if (compressionFlag):
 		dset = f.create_dataset('exchange/data', dsetshape, dtype, chunks=tdf.get_dset_chunks(dim1 - crop_left - crop_right), compression="gzip", compression_opts=compr_opts, shuffle=True, fletcher32=True)
 	else:
-		dset = f.create_dataset('exchange/data', dsetshape, dtype, chunks=tdf.get_dset_chunks(dim1 - crop_left - crop_right))		
+		dset = f.create_dataset('exchange/data', dsetshape, dtype)		
 
 	if privilege_sino:			
 		dset.attrs['axes'] = "y:theta:x"
@@ -504,7 +504,7 @@ def main(argv):
 		if (compressionFlag):
 			darkdset = f.create_dataset('exchange/data_dark', dsetshape, dtype, chunks=tdf.get_dset_chunks(dim1 - crop_left - crop_right), compression="gzip", compression_opts=compr_opts, shuffle=True, fletcher32=True)
 		else:
-			darkdset = f.create_dataset('exchange/data_dark', dsetshape, dtype, chunks=tdf.get_dset_chunks(dim1 - crop_left - crop_right))		
+			darkdset = f.create_dataset('exchange/data_dark', dsetshape, dtype)		
 
 		if privilege_sino:			
 			darkdset.attrs['axes'] = "y:theta:x"
@@ -531,7 +531,7 @@ def main(argv):
 		if (compressionFlag):
 			flatdset = f.create_dataset('exchange/data_white', dsetshape, dtype, chunks=tdf.get_dset_chunks(dim1 - crop_left - crop_right), compression="gzip", compression_opts=compr_opts, shuffle=True, fletcher32=True)
 		else:
-			flatdset = f.create_dataset('exchange/data_white', dsetshape, dtype, chunks=tdf.get_dset_chunks(dim1 - crop_left - crop_right))		
+			flatdset = f.create_dataset('exchange/data_white', dsetshape, dtype)		
 
 		if privilege_sino:			
 			flatdset.attrs['axes'] = "y:theta:x"

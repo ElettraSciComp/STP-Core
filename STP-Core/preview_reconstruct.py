@@ -61,10 +61,8 @@ from preprocess.extract_flatdark import extract_flatdark
 from phaseretrieval.phase_retrieval import prepare_plan, phase_retrieval
 
 from reconstruct.rec_astra import recon_astra_fbp, recon_astra_iterative
-from reconstruct.rec_scikit import recon_scikit_fbp, recon_scikit_sart
 from reconstruct.rec_fista_tv import recon_fista_tv
 from reconstruct.rec_mr_fbp import recon_mr_fbp
-#from reconstruct.rec_tomopy import recon_tomopy_iterative
 from reconstruct.rec_gridrec import recon_gridrec
 
 from postprocess.postprocess import postprocess
@@ -167,14 +165,8 @@ def reconstruct(im, angles, offset, logtransform, param1, circle, scale, pad, me
 		im = recon_mr_fbp(im, angles)
 	elif (method == 'FISTA-TV_CUDA'):
 		im = recon_fista_tv(im, angles, param1, param1)
-	elif (method == 'MLEM'):
-		im = recon_tomopy_iterative(im, angles, method, param1)	
-	elif (method == 'SCIKIT-FBP'):
-		im = recon_scikit_fbp(im, angles, param1)
 	elif (method == 'GRIDREC'):
 		[im, im] = recon_gridrec(im, im, angles, param1)	
-	elif (method == 'SCIKIT-SART'):
-		im = recon_scikit_sart(im, angles, param1)	
 	else:
 		im = recon_astra_iterative(im, angles, method, param1, zerone_mode)	
 

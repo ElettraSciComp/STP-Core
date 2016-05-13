@@ -369,7 +369,7 @@ def main(argv):
 			dset = f.create_dataset('exchange/data', datashape, im.dtype, chunks=tdf.get_dset_chunks(im.shape[1]), 
 				compression="gzip", compression_opts=compr_opts, shuffle=True, fletcher32=True)
 		else:
-			dset = f.create_dataset('exchange/data', datashape, im.dtype, chunks=tdf.get_dset_chunks(im.shape[1]))		
+			dset = f.create_dataset('exchange/data', datashape, im.dtype)		
 
 		if privilege_sino:			
 			dset.attrs['axes'] = "y:theta:x"
@@ -431,7 +431,7 @@ def main(argv):
 				dset = f.create_dataset('exchange/data_white', flatshape, im.dtype, chunks=tdf.get_dset_chunks(im.shape[1]), 
 					compression="gzip", compression_opts=compr_opts, shuffle=True, fletcher32=True)
 			else:
-				dset = f.create_dataset('exchange/data_white', flatshape, im.dtype, chunks=tdf.get_dset_chunks(im.shape[1]))		
+				dset = f.create_dataset('exchange/data_white', flatshape, im.dtype)		
 						
 			dset.attrs['min'] = str(numpy.amin(im[:]))
 			dset.attrs['max'] = str(numpy.amax(im[:]))
@@ -467,7 +467,7 @@ def main(argv):
 				dset = f.create_dataset('exchange/data_dark', darkshape, im.dtype, chunks=tdf.get_dset_chunks(im.shape[1]), 
 					compression="gzip", compression_opts=compr_opts, shuffle=True, fletcher32=True)
 			else:
-				dset = f.create_dataset('exchange/data_dark', darkshape, im.dtype, chunks=tdf.get_dset_chunks(im.shape[1]))	
+				dset = f.create_dataset('exchange/data_dark', darkshape, im.dtype)	
 			
 			dset.attrs['min'] = str(numpy.amin(im))
 			dset.attrs['max'] = str(numpy.amax(im))
