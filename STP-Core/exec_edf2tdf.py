@@ -56,7 +56,7 @@ from glob import glob
 
 from h5py import File as getHDF5
 import io.tdf as tdf
-import io.EdfFile as EdfFile
+import io.EdfFile as EdfFile # To be included by PyMCA software (copyright ESRF)
 
 from multiprocessing import Process, Lock
 
