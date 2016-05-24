@@ -19,7 +19,7 @@
 #       the documentation and/or other materials provided with the        #
 #       distribution.                                                     #
 #                                                                         #
-#     * Neither the name of Elettra - Sincotrone Trieste S.C.p.A nor      #
+#     * Neither the name of Elettra - Sincrotrone Trieste S.C.p.A nor     #
 #       the names of its contributors may be used to endorse or promote   #
 #       products derived from this software without specific prior        #
 #       written permission.                                               #
@@ -64,7 +64,7 @@ from reconstruct.rec_gridrec import recon_gridrec
 
 from postprocess.postprocess import postprocess
 
-from utils.padding import upperPowerOfTwo, padImage, padSino
+from utils.padding import upperPowerOfTwo, padImage, padSmoothWidth
 
 from tifffile import imread, imsave
 from h5py import File as getHDF5
@@ -173,7 +173,7 @@ def reconstruct(im, angles, offset, logtransform, param1, circle, scale, pad, me
 		marg  = (n_pad - dim_o) / 2	
 	
 		# Pad image:
-		im_f = padSino(im_f, n_pad)				
+		im_f = padSmoothWidth(im_f, n_pad)				
 	
 	# Perform the actual reconstruction:
 	if (method.startswith('FBP')):
@@ -318,8 +318,8 @@ def reconstruct_gridrec(im1, im2, angles, offset, logtransform, param1, circle, 
 		marg  = (n_pad - dim_o) / 2	
 
 		# Pad image:
-		im_f1 = padSino(im_f1, n_pad)	
-		im_f2 = padSino(im_f2, n_pad)		
+		im_f1 = padSmoothWidth(im_f1, n_pad)	
+		im_f2 = padSmoothWidth(im_f2, n_pad)		
 	
 	# Perform the actual reconstruction:	
 	[im_f1, im_f2] = recon_gridrec(im_f1, im_f2, angles, param1) 

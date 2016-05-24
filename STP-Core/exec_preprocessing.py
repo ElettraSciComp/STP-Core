@@ -19,7 +19,7 @@
 #       the documentation and/or other materials provided with the        #
 #       distribution.                                                     #
 #                                                                         #
-#     * Neither the name of Elettra - Sincotrone Trieste S.C.p.A nor      #
+#     * Neither the name of Elettra - Sincrotrone Trieste S.C.p.A nor     #
 #       the names of its contributors may be used to endorse or promote   #
 #       products derived from this software without specific prior        #
 #       written permission.                                               #
@@ -279,7 +279,7 @@ def main(argv):
 
 	#start = 0
 	#end = num_sinos - 1
-	#process(lock, start, end, infile, outfile, outshape, im.dtype, plan, norm_sx, norm_dx, flat_end, 
+	#_process(lock, start, end, infile, outfile, outshape, im.dtype, plan, norm_sx, norm_dx, flat_end, 
 	#		half_half, half_half_line, ext_fov, ext_fov_rot_right, ext_fov_overlap, ringrem, logfilename)
 
 	# 255 256 C:\Temp\BrunGeorgos.tdf C:\Temp\BrunGeorgos_corr.tdf 11 11 True True 900 False False 0 rivers:11;0 1 C:\Temp\log_00.txt

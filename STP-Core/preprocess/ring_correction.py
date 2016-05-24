@@ -19,7 +19,7 @@
 #       the documentation and/or other materials provided with the        #
 #       distribution.                                                     #
 #                                                                         #
-#     * Neither the name of Elettra - Sincotrone Trieste S.C.p.A nor      #
+#     * Neither the name of Elettra - Sincrotrone Trieste S.C.p.A nor     #
 #       the names of its contributors may be used to endorse or promote   #
 #       products derived from this software without specific prior        #
 #       written permission.                                               #

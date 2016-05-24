@@ -19,7 +19,7 @@
 #       the documentation and/or other materials provided with the        #
 #       distribution.                                                     #
 #                                                                         #
-#     * Neither the name of Elettra - Sincotrone Trieste S.C.p.A nor      #
+#     * Neither the name of Elettra - Sincrotrone Trieste S.C.p.A nor     #
 #       the names of its contributors may be used to endorse or promote   #
 #       products derived from this software without specific prior        #
 #       written permission.                                               #
@@ -44,7 +44,7 @@
 #
 
 from numpy import uint16, float32, iinfo, finfo, ndarray
-from numpy import copy
+from numpy import copy, pad
 
 from _medfilt import _medfilt
 
@@ -81,23 +81,30 @@ def oimoen(im, args):
     n1 = int(param1) 
     n2 = int(param2)
 
+	# Padding:
+    im = pad(im, ((n2 + n1, n2 + n1), (0, 0)), 'symmetric')
+    im = pad(im, ((0, 0), (n1 + n2, n1 + n2)), 'edge')
+
     im1 = im.copy()
 
-    # Radial median filtering:
-    for i in range(0, im.shape[0]):
+    # Horizontal median filtering:
+    for i in range(0, im1.shape[0]):
 
-        im1[i,:] = _medfilt(im[i,:], n1)        
+        im1[i,:] = _medfilt(im1[i,:], n1)        
 
     # Create difference image (high-pass filter):
     diff = im - im1
 
-    # Azimutal filtering:
-    for i in range(0, im.shape[1]):
+    # Vertical filtering:
+    for i in range(0, diff.shape[1]):
 
         diff[:,i] = _medfilt(diff[:,i], n2)
 
     # Compensate output image:
     im = im - diff
+
+	# Crop padded image:
+    im = im[(n2 + n1):im.shape[0] - (n1 + n2), (n1 + n2):im.shape[1] - (n1 + n2)]	
 
     # Return image according to input type:
     if (im.dtype == 'uint16'):

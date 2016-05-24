@@ -19,7 +19,7 @@
 #       the documentation and/or other materials provided with the        #
 #       distribution.                                                     #
 #                                                                         #
-#     * Neither the name of Elettra - Sincotrone Trieste S.C.p.A nor      #
+#     * Neither the name of Elettra - Sincrotrone Trieste S.C.p.A nor     #
 #       the names of its contributors may be used to endorse or promote   #
 #       products derived from this software without specific prior        #
 #       written permission.                                               #
@@ -196,8 +196,8 @@ def padImage(im, n_pad0, n_pad1):
 			
 	return im
 
-def padSino(im, n_pad):
-	"""Pad the input sinogram to the specified width by replicate padding with Hanning smoothing to zero.
+def padSmoothWidth(im, n_pad):
+	"""Pad the input image to the specified new width by replicate padding with Hanning smoothing to zero.
 
     Parameters
     ----------    
@@ -205,7 +205,7 @@ def padSino(im, n_pad):
 		Image data as numpy array.
 
 	n_pad : int
-		The new width of the sinogram.
+		The new width of the image.
 
 	Return value
 	----------

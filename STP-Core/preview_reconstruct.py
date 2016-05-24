@@ -67,7 +67,7 @@ from reconstruct.rec_gridrec import recon_gridrec
 
 from postprocess.postprocess import postprocess
 
-from utils.padding import upperPowerOfTwo, padImage, padSino
+from utils.padding import upperPowerOfTwo, padImage, padSmoothWidth
 from utils.caching import cache2plan, plan2cache
 
 from tifffile import imread, imsave
@@ -156,7 +156,7 @@ def reconstruct(im, angles, offset, logtransform, param1, circle, scale, pad, me
 		marg  = (n_pad - dim_o) / 2	
 	
 		# Pad image:
-		im = padSino(im, n_pad)		
+		im = padSmoothWidth(im, n_pad)		
 	
 	# Perform the actual reconstruction:
 	if (method.startswith('FBP')):
