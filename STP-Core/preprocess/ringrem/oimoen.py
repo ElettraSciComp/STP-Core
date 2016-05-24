@@ -43,65 +43,72 @@
 # Last modified: May, 24th 2016
 #
 
-from numpy import concatenate
+from numpy import uint16, float32, iinfo, finfo, ndarray
+from numpy import copy
 
-from ringrem.rivers import rivers
-from ringrem.boinhaibel import boinhaibel
-from ringrem.munchetal import munchetal
-from ringrem.raven import raven
-from ringrem.oimoen import oimoen
-from ringrem.sijberspostnov import sijberspostnov
+from _medfilt import _medfilt
 
-def ring_correction (im, ringrem, flat_end, skip_flat_after, half_half, half_half_line, ext_fov):
-	"""Apply ring artifacts compensation by de-striping the input sinogram.
+def oimoen(im, args):
+    """Process a sinogram image with the Oimoen de-striping algorithm.
 
     Parameters
     ----------
     im : array_like
-		Image data (sinogram) as numpy array. 
-	
-	ringrem : string
-		String containing ring removal method and parameters
-	
-	half_half : bool
-		True to separately process the sinogram in two parts
-	
-	half_half_line : int
-		Line number considered to identify the two parts to be processed separately. 
-		(This parameter is ignored if half_half is False)
-	
-	skip_flat_after e ext_fov SERVE???
-    
-    """
-	method, args = ringrem.split(":", 1)
-			
-	if (method == "rivers"):
+        Image data as numpy array.
 
-		if flat_end and not skip_flat_after and half_half and not ext_fov:	
-			im_top    = rivers( im[0:half_half_line,:], args)
-			im_bottom = rivers( im[half_half_line:,:], args)
-			im = concatenate((im_top,im_bottom), axis=0)					
-		else:
-			im = rivers(im, args)
-					
-	elif (method == "boinhaibel"):
-		if flat_end and not skip_flat_after and half_half and not ext_fov:	
-			im_top    = boinhaibel( im[0:half_half_line,:], args)
-			im_bottom = boinhaibel( im[half_half_line:,:], args)
-			im = concatenate((im_top,im_bottom), axis=0)
-		else:
-			im = boinhaibel(im, args)
-					
-	elif (method == "munchetal"):				
-		im = munchetal(im, args)	
-				
-	elif (method == "raven"):				
-		im = raven(im, args)
+    n1 : int
+        Size of the median radial filtering.
 
-	elif (method == "oimoen"):				
-		im = oimoen(im, args)
+    n2 : int
+        Size of the median azimutal filtering.
+       
+    Example (using tifffile.py)
+    --------------------------
+    >>> im = imread('sino_orig.tif')
+    >>> im = oimoen(im, 51, 51)    
+    >>> imsave('sino_flt.tif', im) 
 
-	elif (method == "sijberspostnov"):				
-		im = sijberspostnov(im, args)
+    References
+    ----------
+    M.J. Oimoen, An effective filter for removal of production artifacts in U.S. 
+    geological survey 7.5-minute digital elevation models, Proc. of the 14th Int. 
+    Conf. on Applied Geologic Remote Sensing, Las Vegas, Nevada, 6-8 November, 
+    2000, pp. 311-319.
 
-	return im 
+    """    
+    # Get args:
+    param1, param2 = args.split(";")    
+    n1 = int(param1) 
+    n2 = int(param2)
+
+    im1 = im.copy()
+
+    # Radial median filtering:
+    for i in range(0, im.shape[0]):
+
+        im1[i,:] = _medfilt(im[i,:], n1)        
+
+    # Create difference image (high-pass filter):
+    diff = im - im1
+
+    # Azimutal filtering:
+    for i in range(0, im.shape[1]):
+
+        diff[:,i] = _medfilt(diff[:,i], n2)
+
+    # Compensate output image:
+    im = im - diff
+
+    # Return image according to input type:
+    if (im.dtype == 'uint16'):
+
+        # Check extrema for uint16 images:
+        im[im < iinfo(uint16).min] = iinfo(uint16).min
+        im[im > iinfo(uint16).max] = iinfo(uint16).max
+
+        # Return image:
+        return im.astype(uint16)
+
+    else:
+
+        return im

@@ -142,10 +142,20 @@ def main(argv):
 	flatprefix = argv[5]
 	darkprefix = argv[6]
 	
-	if (flatprefix == "-") or (darkprefix == "-"):
+	if (flatprefix == "-"):
 		skipflat = True
 	else:
 		skipflat = False
+
+	if (darkprefix == "-"):
+		skipdark = True
+	else:
+		skipdark = False
+
+	if (fileprefix == "-"):
+		skiptomo = True
+	else:
+		skiptomo = False
 	
 	projorder = argv[7]
 	if projorder == "True":
@@ -178,20 +188,20 @@ def main(argv):
 		log.write(os.linesep + "\tOutput path where RAW files will be created: %s" % (outpath))		
 	log.write(os.linesep + "\t--------------")			
 	log.write(os.linesep + "\tFile output prefix: %s"  % (fileprefix))
-	log.write(os.linesep + "\tDark images output prefix: %s" % (flatprefix))
-	log.write(os.linesep + "\tFlat images output prefix: %s" % (darkprefix))
+	log.write(os.linesep + "\tFlat images output prefix: %s" % (flatprefix))
+	log.write(os.linesep + "\tDark images output prefix: %s" % (darkprefix))
 	log.write(os.linesep + "\t--------------")	
-	if (int_to != -1):
-		log.write(os.linesep + "\tThe subset [%d,%d] of the data will be considered." % (int_from, int_to))
 	
-	if (projorder):
-		log.write(os.linesep + "\tProjection order assumed.")
-	else:
-		log.write(os.linesep + "\tSinogram order assumed.")
+	if (not (skiptomo)):
+		if (int_to != -1):
+			log.write(os.linesep + "\tThe subset [%d,%d] of the data will be considered." % (int_from, int_to))
 	
-	if (skipflat):
-		log.write(os.linesep + "\tWarning: flat/dark images (if any) will not be considered.")		
-	log.write(os.linesep + "\t--------------")	
+		if (projorder):
+			log.write(os.linesep + "\tProjection order assumed.")
+		else:
+			log.write(os.linesep + "\tSinogram order assumed.")
+	
+		log.write(os.linesep + "\t--------------")	
 	log.close()	
 
 	if not os.path.exists(infile):		
@@ -283,16 +293,16 @@ def main(argv):
 				t1 = time.time()
 				im = tdf.read_tomo( dset, i )
 				if ( TIFFFormat ):
-					if ('version' in f.attrs):
-						if (f.attrs['version'] == '1.0'):
-							if (os.path.splitext(provenance_dset["filename", i])[0] == provenance_dset["filename", i]):
-								fname = outpath + provenance_dset["filename", i] + '.tif'
-							else:
-								fname = outpath + provenance_dset["filename", i]
-					else:
-						fname = outpath + flatprefix + '_' + str(i + 1).zfill(4) + '.tif'
+					#if ('version' in f.attrs):
+					#	if (f.attrs['version'] == '1.0'):
+					#		if (os.path.splitext(provenance_dset["filename", i])[0] == provenance_dset["filename", i]):
+					#			fname = outpath + provenance_dset["filename", i] + '.tif'
+					#		else:
+					#			fname = outpath + provenance_dset["filename", i]
+					#else:
+					fname = outpath + flatprefix + '_' + str(i).zfill(4) + '.tif'
 				else:
-					fname = outpath + flatprefix + '_' + str(i + 1).zfill(4) + '_' + str(im.shape[1]) + 'x' + str(im.shape[0]) + '_' + str(im.dtype)	+ '.raw'
+					fname = outpath + flatprefix + '_' + str(i).zfill(4) + '_' + str(im.shape[1]) + 'x' + str(im.shape[0]) + '_' + str(im.dtype)	+ '.raw'
 				
 				# Cast type (if required but it should never occur):		
 				if ((im.dtype).type is float64):
@@ -303,13 +313,13 @@ def main(argv):
 				else:
 					im.tofile(fname)				
 				
-				try:
-					if ('version' in f.attrs):
-						if (f.attrs['version'] == '1.0'):															
-							t = int(time.mktime(datetime.datetime.strptime(provenance_dset["timestamp", i], "%Y-%m-%d %H:%M:%S.%f").timetuple()))							
-							os.utime(fname, (t,t) )
-				except:
-					pass
+				#try:
+				#	if ('version' in f.attrs):
+				#		if (f.attrs['version'] == '1.0'):															
+				#			t = int(time.mktime(datetime.datetime.strptime(provenance_dset["timestamp", i], "%Y-%m-%d %H:%M:%S.%f").timetuple()))							
+				#			os.utime(fname, (t,t) )
+				#except:
+				#	pass
 
 				t2 = time.time() 
 
@@ -326,7 +336,9 @@ def main(argv):
 			log.write(os.linesep + "\tWarning: no dataset named \"flat\" found.")
 			log.close()
 				
-			pass		
+			pass	
+
+	if not skipdark:	
 		
 		#
 		# Dark part
@@ -353,16 +365,16 @@ def main(argv):
 				im = tdf.read_tomo( dset, i )
 				
 				if ( TIFFFormat ):
-					if ('version' in f.attrs):
-						if (f.attrs['version'] == '1.0'):							
-							if (os.path.splitext(provenance_dset["filename", num_flats + i])[0] == provenance_dset["filename", num_flats + i]):
-								fname = outpath + provenance_dset["filename", num_flats + i] + '.tif'
-							else:
-								fname = outpath + provenance_dset["filename", num_flats + i]
-					else:
-						fname = outpath + darkprefix + '_' + str(i + 1).zfill(4) + '.tif'
+					#if ('version' in f.attrs):
+					#	if (f.attrs['version'] == '1.0'):							
+					#		if (os.path.splitext(provenance_dset["filename", num_flats + i])[0] == provenance_dset["filename", num_flats + i]):
+					#			fname = outpath + provenance_dset["filename", num_flats + i] + '.tif'
+					#		else:
+					#			fname = outpath + provenance_dset["filename", num_flats + i]
+					#else:
+					fname = outpath + darkprefix + '_' + str(i).zfill(4) + '.tif'
 				else:
-					fname = outpath + darkprefix + '_' + str(i + 1).zfill(4) + '_' + str(im.shape[1]) + 'x' + str(im.shape[0]) + '_' + str(im.dtype)	+ '.raw'
+					fname = outpath + darkprefix + '_' + str(i).zfill(4) + '_' + str(im.shape[1]) + 'x' + str(im.shape[0]) + '_' + str(im.dtype)	+ '.raw'
 				
 				# Cast type (if required but it should never occur):		
 				if ((im.dtype).type is float64):
@@ -373,13 +385,13 @@ def main(argv):
 				else:
 					im.tofile(fname)		
 					
-				try:
-					if ('version' in f.attrs):
-						if (f.attrs['version'] == '1.0'):																
-							t = int(time.mktime(datetime.datetime.strptime(provenance_dset["timestamp", num_flats + i], "%Y-%m-%d %H:%M:%S.%f").timetuple()))							
-							os.utime(fname, (t,t) )
-				except:
-					pass
+				#try:
+				#	if ('version' in f.attrs):
+				#		if (f.attrs['version'] == '1.0'):																
+				#			t = int(time.mktime(datetime.datetime.strptime(provenance_dset["timestamp", num_flats + i], "%Y-%m-%d %H:%M:%S.%f").timetuple()))							
+				#			os.utime(fname, (t,t) )
+				#except:
+				#	pass
 						
 				t2 = time.time() 
 
@@ -405,72 +417,73 @@ def main(argv):
 	#
 	# Tomo part
 	#	
+	if not skiptomo:	
 	
-	# Read i-th image from input folder:
-	t0 = time.time() 
-	f = getHDF5( infile, 'r' )
+		# Read i-th image from input folder:
+		t0 = time.time() 
+		f = getHDF5( infile, 'r' )
 	
-	if oldTDF:		
-		dset = f['tomo']
-	else:
-		dset = f['exchange/data']	
-	
-	if ('version' in f.attrs):
-		if (f.attrs['version'] == '1.0'):	
-			provenance_dset = f['provenance/detector_output']
-	
-	if not skipflat:	
-		offset = num_flats + num_darks
-	else:
-		offset = 0
-	
-	# Process the required subset of images:
-	for i in range(int_from, int_to + 1):                  
-		
-		# Read input image:
-		t1 = time.time()
-		if projorder:
-			im = tdf.read_tomo( dset, i )			
+		if oldTDF:		
+			dset = f['tomo']
 		else:
-			im = tdf.read_sino( dset, i )			
+			dset = f['exchange/data']	
+	
+		if ('version' in f.attrs):
+			if (f.attrs['version'] == '1.0'):	
+				provenance_dset = f['provenance/detector_output']
+	
+		#if not skipflat:	
+		#	offset = num_flats + num_darks
+		#else:
+		#	offset = 0
+	
+		# Process the required subset of images:
+		for i in range(int_from, int_to + 1):                  
 		
-		
-		# Cast type (if required but it should never occur):		
-		if ((im.dtype).type is float64):			
-			im = im.astype(float32, copy=False)
-		
-		# Save file:
-		if ( TIFFFormat ):
-			if ('version' in f.attrs):
-				if (f.attrs['version'] == '1.0'):	
-					if (os.path.splitext(provenance_dset["filename", offset + i])[0] == provenance_dset["filename", offset + i]):
-						fname = outpath + provenance_dset["filename", offset + i] + '.tif'
-					else:
-						fname = outpath + provenance_dset["filename", offset + i]
+			# Read input image:
+			t1 = time.time()
+			if projorder:
+				im = tdf.read_tomo( dset, i )				
 			else:
-				fname = outpath + fileprefix + '_' + str(i + 1).zfill(4) + '.tif'
-			imsave(fname, im)				
-		else:
-			fname = outpath + fileprefix + '_' + str(i + 1).zfill(4) + '_'	+ str(im.shape[1]) + 'x' + str(im.shape[0]) + '_' + str(im.dtype)	+ '.raw'
-			im.tofile(fname)
+				im = tdf.read_sino( dset, i )			
 		
-		# Change modified date:
-		try:
-			if ('version' in f.attrs):
-				if (f.attrs['version'] == '1.0'):														
-					t = int(time.mktime(datetime.datetime.strptime(provenance_dset["timestamp", offset + i], "%Y-%m-%d %H:%M:%S.%f").timetuple()))							
-					os.utime(fname, (t,t) )
-		except:
-			pass
 		
-		t2 = time.time() 
+			# Cast type (if required but it should never occur):		
+			if ((im.dtype).type is float64):			
+				im = im.astype(float32, copy=False)
+		
+			# Save file:
+			if ( TIFFFormat ):
+				#if ('version' in f.attrs):
+				#	if (f.attrs['version'] == '1.0'):	
+				#		if (os.path.splitext(provenance_dset["filename", offset + i])[0] == provenance_dset["filename", offset + i]):
+				#			fname = outpath + provenance_dset["filename", offset + i] + '.tif'
+				#		else:
+				#			fname = outpath + provenance_dset["filename", offset + i]
+				#else:
+				fname = outpath + fileprefix + '_' + str(i).zfill(4) + '.tif'
+				imsave(fname, im)				
+			else:
+				fname = outpath + fileprefix + '_' + str(i).zfill(4) + '_'	+ str(im.shape[1]) + 'x' + str(im.shape[0]) + '_' + str(im.dtype)	+ '.raw'
+				im.tofile(fname)
+		
+			# Change modified date:
+			#try:
+			#	if ('version' in f.attrs):
+			#		if (f.attrs['version'] == '1.0'):														
+			#			t = int(time.mktime(datetime.datetime.strptime(provenance_dset["timestamp", offset + i], "%Y-%m-%d %H:%M:%S.%f").timetuple()))							
+			#			os.utime(fname, (t,t) )
+			#except:
+			#	pass
+		
+			t2 = time.time() 
 
-		# Print out execution time:	
-		log = open(logfilename,"a")		
-		log.write(os.linesep + "\t%s created in %0.3f sec." % (os.path.basename(fname), t2 - t1))			
-		log.close()	
+			# Print out execution time:	
+			log = open(logfilename,"a")		
+			log.write(os.linesep + "\t%s created in %0.3f sec." % (os.path.basename(fname), t2 - t1))			
+			log.close()	
 			
-	f.close()		
+		f.close()		
 
 	
 if __name__ == "__main__":

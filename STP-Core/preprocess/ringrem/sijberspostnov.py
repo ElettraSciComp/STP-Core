@@ -40,7 +40,7 @@
 
 #
 # Author: Francesco Brun
-# Last modified: April, 4th 2016
+# Last modified: May, 24th 2016
 #
 
 from numpy import zeros, mean, median, var, copy
@@ -60,7 +60,7 @@ def sijberspostnov(im, args):
         Image rows (within the floating window) having variance below 
         this tresh will be corrected.
        
-    Example (using tiffile.py)
+    Example
     --------------------------
     >>> im = imread('original.tif')
     >>> im = sijberspostnov_filter(im, 51, 0.001)    

@@ -3,7 +3,6 @@
 
 # Project specific:
 EdfFile.py
-exec_edf2tdf.py
 
 # Python-specific:
 *.pyc

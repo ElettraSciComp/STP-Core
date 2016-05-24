@@ -61,6 +61,9 @@
     <Compile Include="preprocess\flat_fielding.py" />
     <Compile Include="preprocess\ringrem\boinhaibel.py" />
     <Compile Include="preprocess\ringrem\munchetal.py" />
+    <Compile Include="preprocess\ringrem\oimoen.py">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="preprocess\ringrem\raven.py" />
     <Compile Include="preprocess\ringrem\rivers.py" />
     <Compile Include="preprocess\ringrem\sijberspostnov.py" />
