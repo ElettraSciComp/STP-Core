@@ -19,7 +19,7 @@
 #       the documentation and/or other materials provided with the        #
 #       distribution.                                                     #
 #                                                                         #
-#     * Neither the name of Elettra - Sincotrone Trieste S.C.p.A nor      #
+#     * Neither the name of Elettra - Sincrotrone Trieste S.C.p.A nor     #
 #       the names of its contributors may be used to endorse or promote   #
 #       products derived from this software without specific prior        #
 #       written permission.                                               #
@@ -44,12 +44,36 @@
 #
 
 from numpy import uint16, float32, iinfo, finfo, ndarray
-from numpy import copy
+from numpy import real, copy, zeros, median
+from numpy.fft import fft2, ifft2
+#from pyfftw.interfaces.numpy_fft import fft2, ifft2
 
-from _medfilt import _medfilt
 
-def boinhaibel(im, args):
-    """Process a sinogram image with the Boin and Haibel de-striping algorithm.
+def _medfilt (x, k):
+	"""Apply a length-k median filter to a 1D array x.
+	Boundaries are extended by repeating endpoints.
+
+	Code from https://gist.github.com/bhawkins/3535131
+
+	"""	
+	k2 = (k - 1) // 2
+	y = zeros ((len (x), k), dtype=x.dtype)
+	y[:,k2] = x
+	for i in range (k2):
+		j = k2 - i
+		y[j:,i] = x[:-j]
+		y[:j,i] = x[0]
+		y[:-j,-(i+1)] = x[j:]
+		y[-j:,-(i+1)] = x[-1]
+		
+	return median (y, axis=1)
+
+
+def raven(im, args):
+    """Process a sinogram image with the Raven de-striping algorithm.
+	
+	A median filter is proposed rather than the Butterworth filter 
+	proposed in the original article.
 
     Parameters
     ----------
@@ -58,32 +82,33 @@ def boinhaibel(im, args):
 
     n : int
         Size of the median filtering.
-       
-    Example (using tifffile.py)
+           
+    Example (using tiffile.py)
     --------------------------
     >>> im = imread('sino_orig.tif')
-    >>> im = boinhaibel(im, 11)    
+    >>> im = raven(im, 11)    
     >>> imsave('sino_flt.tif', im) 
 
     References
     ----------
-    M. Boin and A. Haibel, Compensation of ring artefacts in synchrotron 
-    tomographic images, Optics Express 14(25):12071-12075, 2006.
+    C. Raven, Numerical removal of ring artifacts in microtomography,
+    Review of Scientific Instruments 69(8):2978-2980, 1998.
 
     """    
     # Get args:
     param1, param2 = args.split(";")    
     n = int(param1)
+    
+    # Compute FT:
+    im = fft2(im) 
 
-    # Compute sum of each column (avoid further division by zero):
-    col = im.sum(axis=0) + finfo(float32).eps
+    # Median filter: 
+    # tmp   = concatenate((im[0:3,:], im[-2:,:]), axis=0)
+    # im[0,:] = numpy.median(tmp, axis=0);
+    im[0,:] = _medfilt(im[0,:], n)
 
-    # Perform low pass filtering:
-    flt_col = _medfilt(col, n)
-
-    # Apply compensation on each row:
-    for i in range(0, im.shape[0]):
-        im[i,] = im[i,] * (flt_col / col)
+    # Compute inverse FFT of the filtered data:
+    im = real(ifft2(im))
 
     # Return image according to input type:
     if (im.dtype == 'uint16'):

@@ -40,17 +40,14 @@
 
 #
 # Author: Francesco Brun
-# Last modified: May, 24th 2016
+# Last modified: May, 31th 2016
 #
 
 from numpy import concatenate
 
-from ringrem.rivers import rivers
-from ringrem.boinhaibel import boinhaibel
-from ringrem.munchetal import munchetal
-from ringrem.raven import raven
-from ringrem.oimoen import oimoen
-from ringrem.sijberspostnov import sijberspostnov
+import imp, inspect, os
+import ringremoval
+
 
 def ring_correction (im, ringrem, flat_end, skip_flat_after, half_half, half_half_line, ext_fov):
 	"""Apply ring artifacts compensation by de-striping the input sinogram.
@@ -73,35 +70,28 @@ def ring_correction (im, ringrem, flat_end, skip_flat_after, half_half, half_hal
 	skip_flat_after e ext_fov SERVE???
     
     """
+	# Get method and args:
 	method, args = ringrem.split(":", 1)
+
+	# The "none" filter means no filtering:
+	if (method != "none"):
+
+		# Dinamically load module:
+		path = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
+		m = imp.load_source(method, path + '\\ringremoval\\'+ method + '.py')
 			
-	if (method == "rivers"):
+		if ( (method == "rivers") or (method == "boinhaibel") ):
 
-		if flat_end and not skip_flat_after and half_half and not ext_fov:	
-			im_top    = rivers( im[0:half_half_line,:], args)
-			im_bottom = rivers( im[half_half_line:,:], args)
-			im = concatenate((im_top,im_bottom), axis=0)					
+			if flat_end and not skip_flat_after and half_half and not ext_fov:	
+				im_top    = getattr(m, method)( im[0:half_half_line,:], args)
+				im_bottom = getattr(m, method)( im[half_half_line:,:], args)
+				im = concatenate((im_top,im_bottom), axis=0)					
+			else:
+				im = getattr(m, method)(im, args)
+	
 		else:
-			im = rivers(im, args)
-					
-	elif (method == "boinhaibel"):
-		if flat_end and not skip_flat_after and half_half and not ext_fov:	
-			im_top    = boinhaibel( im[0:half_half_line,:], args)
-			im_bottom = boinhaibel( im[half_half_line:,:], args)
-			im = concatenate((im_top,im_bottom), axis=0)
-		else:
-			im = boinhaibel(im, args)
-					
-	elif (method == "munchetal"):				
-		im = munchetal(im, args)	
-				
-	elif (method == "raven"):				
-		im = raven(im, args)
-
-	elif (method == "oimoen"):				
-		im = oimoen(im, args)
-
-	elif (method == "sijberspostnov"):				
-		im = sijberspostnov(im, args)
+		
+			# Call the module dynamically:
+			im = getattr(m, method)(im, args)
 
 	return im 

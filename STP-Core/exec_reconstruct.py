@@ -718,7 +718,7 @@ def main(argv):
 	# Log infos:
 	log = open(logfilename,"a")
 	log.write(linesep + "\tWorking plan prepared correctly.")	
-	log.write(linesep + "\t-------")
+	log.write(linesep + "\t--------------")
 	log.write(linesep + "\tPerforming reconstruction...")			
 	log.close()	
 

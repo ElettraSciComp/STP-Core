@@ -19,7 +19,7 @@
 #       the documentation and/or other materials provided with the        #
 #       distribution.                                                     #
 #                                                                         #
-#     * Neither the name of Elettra - Sincotrone Trieste S.C.p.A nor      #
+#     * Neither the name of Elettra - Sincrotrone Trieste S.C.p.A nor     #
 #       the names of its contributors may be used to endorse or promote   #
 #       products derived from this software without specific prior        #
 #       written permission.                                               #
@@ -40,89 +40,101 @@
 
 #
 # Author: Francesco Brun
-# Last modified: April, 4th 2016
+# Last modified: May, 24th 2016
 #
 
-from numpy.fft import fft, ifft, fftshift, ifftshift
-from numpy import real, exp as npexp, ComplexWarning
-from numpy import arange, floor, kron, ones, float32
-
-#from pyfftw.interfaces.numpy_fft import fft, ifft
-from pywt import wavedec2, waverec2
-
-from warnings import simplefilter
+from numpy import uint16, float32, iinfo, finfo, ndarray
+from numpy import copy, pad, zeros, median
 
 
-def munchetal(im, args):
-    """Process a sinogram image with the Munch et al. de-striping algorithm.
+def _medfilt (x, k):
+	"""Apply a length-k median filter to a 1D array x.
+	Boundaries are extended by repeating endpoints.
+
+	Code from https://gist.github.com/bhawkins/3535131
+
+	"""	
+	k2 = (k - 1) // 2
+	y = zeros ((len (x), k), dtype=x.dtype)
+	y[:,k2] = x
+	for i in range (k2):
+		j = k2 - i
+		y[j:,i] = x[:-j]
+		y[:j,i] = x[0]
+		y[:-j,-(i+1)] = x[j:]
+		y[-j:,-(i+1)] = x[-1]
+		
+	return median (y, axis=1)
+
+
+def oimoen(im, args):
+    """Process a sinogram image with the Oimoen de-striping algorithm.
 
     Parameters
     ----------
     im : array_like
         Image data as numpy array.
 
-    wlevel : int
-        Levels of the wavelet decomposition.
+    n1 : int
+        Size of the horizontal filtering.
 
-    sigma : float
-        Smoothing effect.
+    n2 : int
+        Size of the vertical filtering.
        
-    Example (using tiffile.py)
+    Example (using tifffile.py)
     --------------------------
     >>> im = imread('sino_orig.tif')
-    >>> im = munchetal(im, 4, 1.0)    
+    >>> im = oimoen(im, 51, 51)    
     >>> imsave('sino_flt.tif', im) 
 
     References
     ----------
-    B. Munch, P. Trtik, F. Marone, M. Stampanoni, Stripe and ring artifact removal with
-    combined wavelet-Fourier filtering, Optics Express 17(10):8567-8591, 2009.
+    M.J. Oimoen, An effective filter for removal of production artifacts in U.S. 
+    geological survey 7.5-minute digital elevation models, Proc. of the 14th Int. 
+    Conf. on Applied Geologic Remote Sensing, Las Vegas, Nevada, 6-8 November, 
+    2000, pp. 311-319.
 
-    """  
-    # Disable a warning:
-    simplefilter("ignore", ComplexWarning)
-    
+    """    
     # Get args:
-    wlevel, sigma = args.split(";")    
-    wlevel = int(wlevel)
-    sigma  = float(sigma)
+    param1, param2 = args.split(";")    
+    n1 = int(param1) 
+    n2 = int(param2)
 
-    # The wavelet transform to use : {'haar', 'db1'-'db20', 'sym2'-'sym20', 'coif1'-'coif5', 'dmey'}
-    wname = "db2"
+	# Padding:
+    im = pad(im, ((n2 + n1, n2 + n1), (0, 0)), 'symmetric')
+    im = pad(im, ((0, 0), (n1 + n2, n1 + n2)), 'edge')
 
-    # Wavelet decomposition:
-    coeffs = wavedec2(im.astype(float32), wname, level=wlevel)
-    coeffsFlt = [coeffs[0]] 
+    im1 = im.copy()
 
-    # FFT transform of horizontal frequency bands:
-    for i in range(1, wlevel + 1):  
+    # Horizontal median filtering:
+    for i in range(0, im1.shape[0]):
 
-        # FFT:
-        fcV = fftshift(fft(coeffs[i][1], axis=0))  
-        my, mx = fcV.shape
-        
-        # Damping of vertical stripes:
-        damp = 1 - npexp(-(arange(-floor(my / 2.),-floor(my / 2.) + my) ** 2) / (2 * (sigma ** 2)))      
-        dampprime = kron(ones((1,mx)), damp.reshape((damp.shape[0],1)))
-        fcV = fcV * dampprime    
+        im1[i,:] = _medfilt(im1[i,:], n1)        
 
-        # Inverse FFT:
-        fcVflt = ifft(ifftshift(fcV), axis=0)
-        cVHDtup = (coeffs[i][0], fcVflt, coeffs[i][2])             
-        coeffsFlt.append(cVHDtup)
+    # Create difference image (high-pass filter):
+    diff = im - im1
 
-    # Get wavelet reconstruction:
-    im_f = real(waverec2(coeffsFlt, wname))
+    # Vertical filtering:
+    for i in range(0, diff.shape[1]):
+
+        diff[:,i] = _medfilt(diff[:,i], n2)
+
+    # Compensate output image:
+    im = im - diff
+
+	# Crop padded image:
+    im = im[(n2 + n1):im.shape[0] - (n1 + n2), (n1 + n2):im.shape[1] - (n1 + n2)]	
 
     # Return image according to input type:
     if (im.dtype == 'uint16'):
-        
-        # Check extrema for uint16 images:
-        im_f[im_f < iinfo(uint16).min] = iinfo(uint16).min
-        im_f[im_f > iinfo(uint16).max] = iinfo(uint16).max
 
-        # Return filtered image (an additional row and/or column might be
-        # present):
-        return im_f[0:im.shape[0],0:im.shape[1]].astype(uint16)
+        # Check extrema for uint16 images:
+        im[im < iinfo(uint16).min] = iinfo(uint16).min
+        im[im > iinfo(uint16).max] = iinfo(uint16).max
+
+        # Return image:
+        return im.astype(uint16)
+
     else:
-        return im_f[0:im.shape[0],0:im.shape[1]]
+
+        return im

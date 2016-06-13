@@ -94,142 +94,146 @@ def flat_fielding (im, i, plan, flat_end, half_half, half_half_line, norm_sx, no
 
     """    
 	
-	# Extract plan values:
-	im_flat = plan['im_flat']
-	im_dark = plan['im_dark']
-	im_flat_after = plan['im_flat_after']	
-	im_dark_after = plan['im_dark_after']
+	try:
 
-	skip_flat = plan['skip_flat']
-	skip_flat_after = plan['skip_flat_after']
+		# Extract plan values:
+		im_flat = plan['im_flat']
+		im_dark = plan['im_dark']
+		im_flat_after = plan['im_flat_after']	
+		im_dark_after = plan['im_dark_after']
+
+		skip_flat = plan['skip_flat']
+		skip_flat_after = plan['skip_flat_after']
 	
-	if not isinstance(im_dark, ndarray):
-		im_dark = im_dark_after
+		if not isinstance(im_dark, ndarray):
+			im_dark = im_dark_after
 	
-	if not isinstance(im_flat, ndarray):
-		im_flat = im_flat_after
+		if not isinstance(im_flat, ndarray):
+			im_flat = im_flat_after
 			
-	# Flat correct the image to process:
-	if not skip_flat:
+		# Flat correct the image to process:
+		if not skip_flat:
 					
-		im_flat_curr = im_flat
-		im_dark_curr = im_dark
-		if flat_end and not skip_flat_after and half_half:
-			# Half-and-half mode
-			if ((norm_sx == 0) and (norm_dx == 0)):
-				norm_coeff = 1.0
+			im_flat_curr = im_flat
+			im_dark_curr = im_dark
+			if flat_end and not skip_flat_after and half_half:
+				# Half-and-half mode
+				if ((norm_sx == 0) and (norm_dx == 0)):
+					norm_coeff = 1.0
+				else:
+					# Get the air image:
+					if (norm_dx == 0):
+						im_air = im[:,0:norm_sx]							
+					else:
+						im_sx = im[:,0:norm_sx]							
+						im_dx = im[:,-norm_dx:]					
+						im_air = concatenate((im_sx,im_dx), axis=1)	
+						
+					# Get only the i-th row from flat and dark:					
+					if (norm_dx == 0):
+						im_flat_air_before = im_flat[i,0:norm_sx]
+						im_flat_air_after = im_flat_after[i,0:norm_sx]						
+					else:	
+						im_flat_sx_before = im_flat[i,0:norm_sx]						
+						im_flat_dx_before = im_flat[i,-norm_dx:]					
+						im_flat_air_before = concatenate((im_flat_sx_before,im_flat_dx_before), axis=1)
+						im_flat_sx_after = im_flat_after[i,0:norm_sx]								
+						im_flat_dx_after = im_flat_after[i,-norm_dx:]					
+						im_flat_air_after = concatenate((im_flat_sx_after,im_flat_dx_after), axis=1)		
+						
+					im_flat_air_before = tile(im_flat_air_before, (half_half_line,1)) 
+					im_flat_air_after = tile(im_flat_air_after, (im.shape[0]-half_half_line,1)) 
+					im_flat_air = concatenate((im_flat_air_before,im_flat_air_after), axis=0)					
+					
+					if (norm_dx == 0):
+						im_dark_air_before = im_dark[i,0:norm_sx]
+						im_dark_air_after = im_dark_after[i,0:norm_sx]	
+					else:
+						im_dark_sx_before = im_dark[i,0:norm_sx]								
+						im_dark_dx_before = im_dark[i,-norm_dx:]
+						im_dark_air_before = concatenate((im_dark_sx_before,im_dark_dx_before), axis=1)
+						im_dark_sx_after = im_dark_after[i,0:norm_sx]								
+						im_dark_dx_after = im_dark_after[i,-norm_dx:]					
+						im_dark_air_after = concatenate((im_dark_sx_after,im_dark_dx_after), axis=1)					
+					
+					im_dark_air_before = tile(im_dark_air_before, (half_half_line,1)) 
+					im_dark_air_after = tile(im_dark_air_after, (im.shape[0]-half_half_line,1)) 
+					im_dark_air = concatenate((im_dark_air_before,im_dark_air_after), axis=0)				
+								
+					# Set a norm coefficient for avoiding for cycle:
+					norm_coeff = median(im_air, axis=1) / (median(im_flat_air, axis=1) + finfo(float32).eps)
+					norm_coeff = tile(norm_coeff, (im.shape[1],1)) 
+					norm_coeff = norm_coeff.T
+						
+				# Create flat and dark images replicating the i-th row the proper number of times:
+				tmp_flat_before = tile(im_flat[i,:], (half_half_line,1)) 
+				tmp_flat_after = tile(im_flat_after[i,:], (im.shape[0]-half_half_line,1)) 
+				tmp_flat = concatenate((tmp_flat_before,tmp_flat_after), axis=0)				
+				tmp_dark_before = tile(im_dark[i,:], (half_half_line,1)) 
+				tmp_dark_after = tile(im_dark_after[i,:], (im.shape[0]-half_half_line,1)) 
+				tmp_dark = concatenate((tmp_dark_before,tmp_dark_after), axis=0)
+			
 			else:
-				# Get the air image:
-				if (norm_dx == 0):
-					im_air = im[:,0:norm_sx]							
-				else:
-					im_sx = im[:,0:norm_sx]							
-					im_dx = im[:,-norm_dx:]					
-					im_air = concatenate((im_sx,im_dx), axis=1)	
-						
-				# Get only the i-th row from flat and dark:					
-				if (norm_dx == 0):
-					im_flat_air_before = im_flat[i,0:norm_sx]
-					im_flat_air_after = im_flat_after[i,0:norm_sx]						
-				else:	
-					im_flat_sx_before = im_flat[i,0:norm_sx]						
-					im_flat_dx_before = im_flat[i,-norm_dx:]					
-					im_flat_air_before = concatenate((im_flat_sx_before,im_flat_dx_before), axis=1)
-					im_flat_sx_after = im_flat_after[i,0:norm_sx]								
-					im_flat_dx_after = im_flat_after[i,-norm_dx:]					
-					im_flat_air_after = concatenate((im_flat_sx_after,im_flat_dx_after), axis=1)		
-						
-				im_flat_air_before = tile(im_flat_air_before, (half_half_line,1)) 
-				im_flat_air_after = tile(im_flat_air_after, (im.shape[0]-half_half_line,1)) 
-				im_flat_air = concatenate((im_flat_air_before,im_flat_air_after), axis=0)					
-					
-				if (norm_dx == 0):
-					im_dark_air_before = im_dark[i,0:norm_sx]
-					im_dark_air_after = im_dark_after[i,0:norm_sx]	
-				else:
-					im_dark_sx_before = im_dark[i,0:norm_sx]								
-					im_dark_dx_before = im_dark[i,-norm_dx:]
-					im_dark_air_before = concatenate((im_dark_sx_before,im_dark_dx_before), axis=1)
-					im_dark_sx_after = im_dark_after[i,0:norm_sx]								
-					im_dark_dx_after = im_dark_after[i,-norm_dx:]					
-					im_dark_air_after = concatenate((im_dark_sx_after,im_dark_dx_after), axis=1)					
-					
-				im_dark_air_before = tile(im_dark_air_before, (half_half_line,1)) 
-				im_dark_air_after = tile(im_dark_air_after, (im.shape[0]-half_half_line,1)) 
-				im_dark_air = concatenate((im_dark_air_before,im_dark_air_after), axis=0)				
-								
-				# Set a norm coefficient for avoiding for cycle:
-				norm_coeff = median(im_air, axis=1) / (median(im_flat_air, axis=1) + finfo(float32).eps)
-				norm_coeff = tile(norm_coeff, (im.shape[1],1)) 
-				norm_coeff = norm_coeff.T
-						
-			# Create flat and dark images replicating the i-th row the proper number of times:
-			tmp_flat_before = tile(im_flat[i,:], (half_half_line,1)) 
-			tmp_flat_after = tile(im_flat_after[i,:], (im.shape[0]-half_half_line,1)) 
-			tmp_flat = concatenate((tmp_flat_before,tmp_flat_after), axis=0)				
-			tmp_dark_before = tile(im_dark[i,:], (half_half_line,1)) 
-			tmp_dark_after = tile(im_dark_after[i,:], (im.shape[0]-half_half_line,1)) 
-			tmp_dark = concatenate((tmp_dark_before,tmp_dark_after), axis=0)
-			
-		else:
-			# The same flat for all the images:				
-			if flat_end and not skip_flat_after:
-				# Use the ones acquired after the projections:
-				im_flat = im_flat_after
-				im_dark = im_dark_after
+				# The same flat for all the images:				
+				if flat_end and not skip_flat_after:
+					# Use the ones acquired after the projections:
+					im_flat = im_flat_after
+					im_dark = im_dark_after
 
-			if ((norm_sx == 0) and (norm_dx == 0)):
-				norm_coeff = 1.0								
-			else:					
-				# Get the air image:
-				if (norm_dx == 0):
-					im_air = im[:,0:norm_sx]							
-				else:
-					im_sx = im[:,0:norm_sx]							
-					im_dx = im[:,-norm_dx:]
-					im_air = concatenate((im_sx,im_dx), axis=1)		
+				if ((norm_sx == 0) and (norm_dx == 0)):
+					norm_coeff = 1.0								
+				else:					
+					# Get the air image:
+					if (norm_dx == 0):
+						im_air = im[:,0:norm_sx]							
+					else:
+						im_sx = im[:,0:norm_sx]							
+						im_dx = im[:,-norm_dx:]
+						im_air = concatenate((im_sx,im_dx), axis=1)		
 						
-				# Get only the i-th row from flat and dark:
-				if (norm_dx == 0):
-					im_flat_air = im_flat[i,0:norm_sx]	
-				else:
-					im_flat_sx = im_flat[i,0:norm_sx]								
-					im_flat_dx = im_flat[i,-norm_dx:]
-					im_flat_air = concatenate((im_flat_sx,im_flat_dx), axis=1)	
+					# Get only the i-th row from flat and dark:
+					if (norm_dx == 0):
+						im_flat_air = im_flat[i,0:norm_sx]	
+					else:
+						im_flat_sx = im_flat[i,0:norm_sx]								
+						im_flat_dx = im_flat[i,-norm_dx:]
+						im_flat_air = concatenate((im_flat_sx,im_flat_dx), axis=1)	
 						
-				im_flat_air = tile(im_flat_air, (im.shape[0],1)) 
+					im_flat_air = tile(im_flat_air, (im.shape[0],1)) 
 					
-				if (norm_dx == 0):
-					im_dark_air = im_dark[i,0:norm_sx]								
-				else:
-					im_dark_sx = im_dark[i,0:norm_sx]								
-					im_dark_dx = im_dark[i,-norm_dx:]
-					im_dark_air = concatenate((im_dark_sx,im_dark_dx), axis=1)						
+					if (norm_dx == 0):
+						im_dark_air = im_dark[i,0:norm_sx]								
+					else:
+						im_dark_sx = im_dark[i,0:norm_sx]								
+						im_dark_dx = im_dark[i,-norm_dx:]
+						im_dark_air = concatenate((im_dark_sx,im_dark_dx), axis=1)						
 						
-				im_dark_air = tile(im_dark_air, (im.shape[0],1)) 				
+					im_dark_air = tile(im_dark_air, (im.shape[0],1)) 				
 								
-				# Set a norm coefficient for avoiding for cycle:
-				norm_coeff = median(im_air, axis=1) / (median(im_flat_air, axis=1) + finfo(float32).eps)
-				norm_coeff = tile(norm_coeff, (im.shape[1],1)) 
-				norm_coeff = norm_coeff.T	
+					# Set a norm coefficient for avoiding for cycle:
+					norm_coeff = median(im_air, axis=1) / (median(im_flat_air, axis=1) + finfo(float32).eps)
+					norm_coeff = tile(norm_coeff, (im.shape[1],1)) 
+					norm_coeff = norm_coeff.T	
 
-			# Create flat and dark images replicating the i-th row the proper number of times:
-			tmp_flat = tile(im_flat[i,:], (im.shape[0],1)) 
-			tmp_dark = tile(im_dark[i,:], (im.shape[0],1)) 								
+				# Create flat and dark images replicating the i-th row the proper number of times:
+				tmp_flat = tile(im_flat[i,:], (im.shape[0],1)) 
+				tmp_dark = tile(im_dark[i,:], (im.shape[0],1)) 								
 			
 						
-		# Do actual flat fielding:
-		im = ((im - tmp_dark) / ((tmp_flat - tmp_dark) * norm_coeff + finfo(float32).eps)).astype(float32)			
+			# Do actual flat fielding:
+			im = ((im - tmp_dark) / ((tmp_flat - tmp_dark) * norm_coeff + finfo(float32).eps)).astype(float32)			
 			
-		# Quick and dirty compensation for detector afterglow:
-		size_ct = 3
-		while ( ( float(amin(im)) <  finfo(float32).eps) and (size_ct <= 7) ):			
-			im_f = median_filter(im, size_ct)
-			im [im <  finfo(float32).eps] = im_f [im <  finfo(float32).eps]								
-			size_ct += 2
+			# Quick and dirty compensation for detector afterglow:
+			size_ct = 3
+			while ( ( float(amin(im)) <  finfo(float32).eps) and (size_ct <= 7) ):			
+				im_f = median_filter(im, size_ct)
+				im [im <  finfo(float32).eps] = im_f [im <  finfo(float32).eps]								
+				size_ct += 2
 				
-		if (float(amin(im)) <  finfo(float32).eps):				
-			im [im <  finfo(float32).eps] = finfo(float32).eps	
+			if (float(amin(im)) <  finfo(float32).eps):				
+				im [im <  finfo(float32).eps] = finfo(float32).eps	
 
-	# Return pre-processed image:
-	return im
+	finally:
+
+		# Return pre-processed image:
+		return im

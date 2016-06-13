@@ -19,7 +19,7 @@
 #       the documentation and/or other materials provided with the        #
 #       distribution.                                                     #
 #                                                                         #
-#     * Neither the name of Elettra - Sincotrone Trieste S.C.p.A nor      #
+#     * Neither the name of Elettra - Sincrotrone Trieste S.C.p.A nor     #
 #       the names of its contributors may be used to endorse or promote   #
 #       products derived from this software without specific prior        #
 #       written permission.                                               #
@@ -43,19 +43,16 @@
 # Last modified: April, 4th 2016
 #
 
-from numpy import zeros, median
-
+from numpy import uint16, float32, iinfo, finfo, ndarray, copy, zeros, median
 
 
 def _medfilt (x, k):
 	"""Apply a length-k median filter to a 1D array x.
 	Boundaries are extended by repeating endpoints.
-	"""
-	
-	#assert k % 2 == 1, "Median filter length must be odd."
-	#assert x.ndim == 1, "Input must be one-dimensional."
-	
-	
+
+	Code from https://gist.github.com/bhawkins/3535131
+
+	"""	
 	k2 = (k - 1) // 2
 	y = zeros ((len (x), k), dtype=x.dtype)
 	y[:,k2] = x
@@ -67,3 +64,53 @@ def _medfilt (x, k):
 		y[-j:,-(i+1)] = x[-1]
 		
 	return median (y, axis=1)
+
+
+def boinhaibel(im, args):
+    """Process a sinogram image with the Boin and Haibel de-striping algorithm.
+
+    Parameters
+    ----------
+    im : array_like
+        Image data as numpy array.
+
+    n : int
+        Size of the median filtering.
+       
+    Example (using tifffile.py)
+    --------------------------
+    >>> im = imread('sino_orig.tif')
+    >>> im = boinhaibel(im, 11)    
+    >>> imsave('sino_flt.tif', im) 
+
+    References
+    ----------
+    M. Boin and A. Haibel, Compensation of ring artefacts in synchrotron 
+    tomographic images, Optics Express 14(25):12071-12075, 2006.
+
+    """    
+    # Get args:
+    param1, param2 = args.split(";")    
+    n = int(param1)
+
+    # Compute sum of each column (avoid further division by zero):
+    col = im.sum(axis=0) + finfo(float32).eps
+
+    # Perform low pass filtering:
+    flt_col = _medfilt(col, n)
+
+    # Apply compensation on each row:
+    for i in range(0, im.shape[0]):
+        im[i,] = im[i,] * (flt_col / col)
+
+    # Return image according to input type:
+    if (im.dtype == 'uint16'):
+        
+        # Check extrema for uint16 images:
+        im[im < iinfo(uint16).min] = iinfo(uint16).min
+        im[im > iinfo(uint16).max] = iinfo(uint16).max
+
+        # Return image:
+        return im.astype(uint16)
+    else:
+        return im

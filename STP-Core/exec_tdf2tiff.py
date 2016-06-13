@@ -55,6 +55,69 @@ from tifffile import imread, imsave
 from h5py import File as getHDF5
 import io.tdf as tdf
 
+from multiprocessing import Process, Lock
+
+def _write_log(lock, fname, logfilename, iotime):    	      
+	"""To do...
+
+	"""
+	lock.acquire()
+	try: 
+		# Print out execution time:
+		log = open(logfilename,"a")
+		log.write(os.linesep + "\t%s converted in %0.3f sec." % (os.path.basename(fname), iotime))
+		log.close()	
+
+	finally:
+		lock.release()	
+
+def _process(lock, int_from, int_to, infile, dset_str, TIFFFormat, projorder, outpath, outprefix, logfilename):
+	"""To do...
+
+	"""							
+	try:			
+
+		f = getHDF5( infile, 'r' )	
+		dset = f[dset_str]
+				
+		# Process the required subset of images:
+		for i in range(int_from, int_to + 1):                  			
+					
+			# Read input image:
+			t0 = time.time()
+
+			if projorder:
+				im = tdf.read_tomo( dset, i )				
+			else:
+				im = tdf.read_sino( dset, i )
+
+			if ( TIFFFormat ):				
+				fname = outpath + outprefix + '_' + str(i).zfill(4) + '.tif'
+			else:
+				fname = outpath + outprefix + '_' + str(i).zfill(4) + '_' + str(im.shape[1]) + \
+						'x' + str(im.shape[0]) + '_' + str(im.dtype)	+ '.raw'
+				
+			# Cast type (if required but it should never occur):		
+			if ((im.dtype).type is float64):
+				im = im.astype(float32, copy=False)
+				
+			if ( TIFFFormat ):
+				imsave(fname, im)
+			else:
+				im.tofile(fname)
+
+			t1 = time.time() 
+
+			# Print out execution time:	
+			_write_log(lock, fname, logfilename, t1 - t0)
+					
+		f.close()
+				
+	except Exception: 
+		
+		pass					
+	
+
 def main(argv):          
 	"""
 	Converts a TDF file (HDF5 Tomo Data Format) into a sequence of TIFF (uncompressed) files.
@@ -101,6 +164,9 @@ def main(argv):
 
 	TIFF_format : boolean string
 		specify the string "True" to create TIFF files, "False" for RAW files.	
+
+	nr_threads : int
+		number of multiple threads (actually processes) to consider to speed up the whole conversion process.
 		
 	log_file : string
 		path with filename of a log file (e.g. "R:\\log.txt") where info about the conversion is reported.
@@ -113,13 +179,12 @@ def main(argv):
 	-------
 	Example call to convert all the projections data to a sequence of tomo*.tif files:
 	
-		python tdf2tiff.py 0 -1 "C:\Temp\wet12T4part2.tdf" "C:\Temp\tomo" tomo flat dark True True "C:\Temp\log.txt"
+		python tdf2tiff.py 0 -1 "C:\Temp\wet12T4part2.tdf" "C:\Temp\tomo" tomo flat dark True True 3 "C:\Temp\log.txt"
 	
 	Requirements
 	-------
 	- Python 2.7 with the latest NumPy, SciPy, H5Py.
-	- TIFFFile from C. Gohlke's website http://www.lfd.uci.edu/~gohlke/ 
-	   (consider also to install TIFFFile.c for performances).
+	- TIFFFile from C. Gohlke
 	- tdf.py
 	
 	Tests
@@ -127,6 +192,9 @@ def main(argv):
 	Tested with WinPython-64bit-2.7.6.3 (Windows) and Anaconda 2.1.0 (Linux 64-bit).		
 
 	"""	
+
+	lock = Lock()
+
 	# To be used without flat fielding (just conversion):
 	first_done = False	
 
@@ -169,7 +237,8 @@ def main(argv):
 	else:
 		TIFFFormat = False	
 		
-	logfilename = argv[9]
+	nr_threads  = int(argv[9])
+	logfilename = argv[10]
 	
 	# Check prefixes and path:
 	if not outpath.endswith(os.path.sep): outpath += os.path.sep
@@ -263,228 +332,61 @@ def main(argv):
 	if ( (int_to >= num_files) or (int_to == -1) ):
 		int_to = num_files - 1
 		
-	# Get the files in infile:
-	if not skipflat:			
-			
-		#
-		# Flat part
-		#								
-		try:			
 
-			t0 = time.time() 
-			f = getHDF5( infile, 'r' )	
 
-			if oldTDF:	
-				dset = f['flat']
-			else:
-				dset = f['exchange/data_white']			
-	
-			num_flats = tdf.get_nr_projs(dset)	
-				
-			#if ('version' in f.attrs) and (f.attrs['version'] == "TDF 1.0"):	
-			if ('version' in f.attrs):
-				if (f.attrs['version'] == '1.0'):
-					provenance_dset = f['provenance/detector_output']
-					
-			# Process the required subset of images:
-			for i in range(0, num_flats):                  			
-					
-				# Read input image:
-				t1 = time.time()
-				im = tdf.read_tomo( dset, i )
-				if ( TIFFFormat ):
-					#if ('version' in f.attrs):
-					#	if (f.attrs['version'] == '1.0'):
-					#		if (os.path.splitext(provenance_dset["filename", i])[0] == provenance_dset["filename", i]):
-					#			fname = outpath + provenance_dset["filename", i] + '.tif'
-					#		else:
-					#			fname = outpath + provenance_dset["filename", i]
-					#else:
-					fname = outpath + flatprefix + '_' + str(i).zfill(4) + '.tif'
-				else:
-					fname = outpath + flatprefix + '_' + str(i).zfill(4) + '_' + str(im.shape[1]) + 'x' + str(im.shape[0]) + '_' + str(im.dtype)	+ '.raw'
-				
-				# Cast type (if required but it should never occur):		
-				if ((im.dtype).type is float64):
-					im = im.astype(float32, copy=False)
-				
-				if ( TIFFFormat ):
-					imsave(fname, im)
-				else:
-					im.tofile(fname)				
-				
-				#try:
-				#	if ('version' in f.attrs):
-				#		if (f.attrs['version'] == '1.0'):															
-				#			t = int(time.mktime(datetime.datetime.strptime(provenance_dset["timestamp", i], "%Y-%m-%d %H:%M:%S.%f").timetuple()))							
-				#			os.utime(fname, (t,t) )
-				#except:
-				#	pass
+	# Spawn the process for the conversion of flat images:
+	if not skipflat:
 
-				t2 = time.time() 
-
-				# Print out execution time:	
-				log = open(logfilename,"a")		
-				log.write(os.linesep + "\t%s created in %0.3f sec." % (os.path.basename(fname), t2 - t1))			
-				log.close()	
-					
-			f.close()
-				
-		except Exception: 
-				
-			log = open(logfilename,"a")
-			log.write(os.linesep + "\tWarning: no dataset named \"flat\" found.")
-			log.close()
-				
-			pass	
-
-	if not skipdark:	
-		
-		#
-		# Dark part
-		#			
-		try:
-			
-			t0 = time.time() 
-			f = getHDF5( infile, 'r' )
-			if oldTDF:	
-				dset = f['dark']
-			else:
-				dset = f['exchange/data_dark']			
-			num_darks = tdf.get_nr_projs(dset)	
-				
-			if ('version' in f.attrs):
-				if (f.attrs['version'] == '1.0'):	
-					provenance_dset = f['provenance/detector_output']
-						
-			# Process the required subset of images:
-			for i in range(0, num_darks):                  
-					
-				# Read input image:
-				t1 = time.time()
-				im = tdf.read_tomo( dset, i )
-				
-				if ( TIFFFormat ):
-					#if ('version' in f.attrs):
-					#	if (f.attrs['version'] == '1.0'):							
-					#		if (os.path.splitext(provenance_dset["filename", num_flats + i])[0] == provenance_dset["filename", num_flats + i]):
-					#			fname = outpath + provenance_dset["filename", num_flats + i] + '.tif'
-					#		else:
-					#			fname = outpath + provenance_dset["filename", num_flats + i]
-					#else:
-					fname = outpath + darkprefix + '_' + str(i).zfill(4) + '.tif'
-				else:
-					fname = outpath + darkprefix + '_' + str(i).zfill(4) + '_' + str(im.shape[1]) + 'x' + str(im.shape[0]) + '_' + str(im.dtype)	+ '.raw'
-				
-				# Cast type (if required but it should never occur):		
-				if ((im.dtype).type is float64):
-					im = im.astype(float32, copy=False)
-					
-				if ( TIFFFormat ):
-					imsave(fname, im)
-				else:
-					im.tofile(fname)		
-					
-				#try:
-				#	if ('version' in f.attrs):
-				#		if (f.attrs['version'] == '1.0'):																
-				#			t = int(time.mktime(datetime.datetime.strptime(provenance_dset["timestamp", num_flats + i], "%Y-%m-%d %H:%M:%S.%f").timetuple()))							
-				#			os.utime(fname, (t,t) )
-				#except:
-				#	pass
-						
-				t2 = time.time() 
-
-				# Print out execution time:	
-				log = open(logfilename,"a")		
-				log.write(os.linesep + "\t%s created in %0.3f sec." % (os.path.basename(fname), t2 - t1))			
-				log.close()	
-					
-			f.close()
-				
-		except Exception: 
-				
-			log = open(logfilename,"a")
-			log.write(os.linesep + "\tWarning: no dataset named \"dark\" found.")
-			log.close()
-				
-			pass		
-		
-	else:
-		num_flats = 0
-		num_darks = 0
-		
-	#
-	# Tomo part
-	#	
-	if not skiptomo:	
-	
-		# Read i-th image from input folder:
-		t0 = time.time() 
 		f = getHDF5( infile, 'r' )
-	
-		if oldTDF:		
-			dset = f['tomo']
+		if oldTDF:
+			dset_str = 'flat'
 		else:
-			dset = f['exchange/data']	
-	
-		if ('version' in f.attrs):
-			if (f.attrs['version'] == '1.0'):	
-				provenance_dset = f['provenance/detector_output']
-	
-		#if not skipflat:	
-		#	offset = num_flats + num_darks
-		#else:
-		#	offset = 0
-	
-		# Process the required subset of images:
-		for i in range(int_from, int_to + 1):                  
-		
-			# Read input image:
-			t1 = time.time()
-			if projorder:
-				im = tdf.read_tomo( dset, i )				
-			else:
-				im = tdf.read_sino( dset, i )			
-		
-		
-			# Cast type (if required but it should never occur):		
-			if ((im.dtype).type is float64):			
-				im = im.astype(float32, copy=False)
-		
-			# Save file:
-			if ( TIFFFormat ):
-				#if ('version' in f.attrs):
-				#	if (f.attrs['version'] == '1.0'):	
-				#		if (os.path.splitext(provenance_dset["filename", offset + i])[0] == provenance_dset["filename", offset + i]):
-				#			fname = outpath + provenance_dset["filename", offset + i] + '.tif'
-				#		else:
-				#			fname = outpath + provenance_dset["filename", offset + i]
-				#else:
-				fname = outpath + fileprefix + '_' + str(i).zfill(4) + '.tif'
-				imsave(fname, im)				
-			else:
-				fname = outpath + fileprefix + '_' + str(i).zfill(4) + '_'	+ str(im.shape[1]) + 'x' + str(im.shape[0]) + '_' + str(im.dtype)	+ '.raw'
-				im.tofile(fname)
-		
-			# Change modified date:
-			#try:
-			#	if ('version' in f.attrs):
-			#		if (f.attrs['version'] == '1.0'):														
-			#			t = int(time.mktime(datetime.datetime.strptime(provenance_dset["timestamp", offset + i], "%Y-%m-%d %H:%M:%S.%f").timetuple()))							
-			#			os.utime(fname, (t,t) )
-			#except:
-			#	pass
-		
-			t2 = time.time() 
+			dset_str = 'exchange/data_white'
+		num_flats = tdf.get_nr_projs(f[dset_str])
+		f.close()	
 
-			# Print out execution time:	
-			log = open(logfilename,"a")		
-			log.write(os.linesep + "\t%s created in %0.3f sec." % (os.path.basename(fname), t2 - t1))			
-			log.close()	
+		if ( num_flats > 0):
+			Process(target=_process, args=(lock, 0, num_flats - 1, infile, dset_str, TIFFFormat, 
+											True, outpath, flatprefix, logfilename)).start()
+			#_process(lock, 0, num_flats - 1, infile, dset_str, TIFFFormat, projorder, outpath, flatprefix, logfilename)
+
+	# Spawn the process for the conversion of dark images:
+	if not skipdark:
+
+		f = getHDF5( infile, 'r' )
+		if oldTDF:
+			dset_str = 'dark'
+		else:
+			dset_str = 'exchange/data_dark'
+		num_darks = tdf.get_nr_projs(f[dset_str])
+		f.close()	
+
+		if ( num_darks > 0):
+			Process(target=_process, args=(lock, 0, num_darks - 1, infile, dset_str, TIFFFormat, 
+											True, outpath, darkprefix, logfilename)).start()
+			#_process(lock, 0, num_darks - 1, infile, dset_str, TIFFFormat, projorder, outpath, darkprefix, logfilename)
+
+	# Spawn the processes for the conversion of projection or sinogram images:
+	if not skiptomo:
+
+		if oldTDF:
+			dset_str = 'tomo'
+		else:
+			dset_str = 'exchange/data'
+		
+		# Start the process for the conversion of the projections (or sinograms) in a multi-threaded way:
+		for num in range(nr_threads):
+			start = ( (int_to - int_from + 1) / nr_threads)*num + int_from
+			if (num == nr_threads - 1):
+				end = int_to
+			else:
+				end = ( (int_to - int_from + 1) / nr_threads)*(num + 1) + int_from - 1
+
+			Process(target=_process, args=(lock, start, end, infile, dset_str, TIFFFormat, 
+											projorder, outpath, fileprefix, logfilename)).start()
 			
-		f.close()		
-
+			#_process(lock, start, end, infile, dset_str, TIFFFormat, projorder, outpath, fileprefix, logfilename)
+	
 	
 if __name__ == "__main__":
 	main(argv[1:])

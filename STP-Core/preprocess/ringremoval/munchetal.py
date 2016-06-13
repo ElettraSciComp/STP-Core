@@ -19,7 +19,7 @@
 #       the documentation and/or other materials provided with the        #
 #       distribution.                                                     #
 #                                                                         #
-#     * Neither the name of Elettra - Sincotrone Trieste S.C.p.A nor      #
+#     * Neither the name of Elettra - Sincrotrone Trieste S.C.p.A nor     #
 #       the names of its contributors may be used to endorse or promote   #
 #       products derived from this software without specific prior        #
 #       written permission.                                               #
@@ -43,62 +43,86 @@
 # Last modified: April, 4th 2016
 #
 
-from numpy import uint16, float32, iinfo, finfo, ndarray
-from numpy import real, copy
-from numpy.fft import fft2, ifft2
-#from pyfftw.interfaces.numpy_fft import fft2, ifft2
+from numpy.fft import fft, ifft, fftshift, ifftshift
+from numpy import real, exp as npexp, ComplexWarning
+from numpy import arange, floor, kron, ones, float32
 
-from _medfilt import _medfilt
+#from pyfftw.interfaces.numpy_fft import fft, ifft
+from pywt import wavedec2, waverec2
 
-def raven(im, args):
-    """Process a sinogram image with the Raven de-striping algorithm.
-	
-	A median filter is proposed rather than the Butterworth filter 
-	proposed in the original article.
+from warnings import simplefilter
+
+
+def munchetal(im, args):
+    """Process a sinogram image with the Munch et al. de-striping algorithm.
 
     Parameters
     ----------
     im : array_like
         Image data as numpy array.
 
-    n : int
-        Size of the median filtering.
-           
+    wlevel : int
+        Levels of the wavelet decomposition.
+
+    sigma : float
+        Smoothing effect.
+       
     Example (using tiffile.py)
     --------------------------
     >>> im = imread('sino_orig.tif')
-    >>> im = raven(im, 11)    
+    >>> im = munchetal(im, 4, 1.0)    
     >>> imsave('sino_flt.tif', im) 
 
     References
     ----------
-    C. Raven, Numerical removal of ring artifacts in microtomography,
-    Review of Scientific Instruments 69(8):2978-2980, 1998.
+    B. Munch, P. Trtik, F. Marone, M. Stampanoni, Stripe and ring artifact removal with
+    combined wavelet-Fourier filtering, Optics Express 17(10):8567-8591, 2009.
 
-    """    
-    # Get args:
-    param1, param2 = args.split(";")    
-    n = int(param1)
+    """  
+    # Disable a warning:
+    simplefilter("ignore", ComplexWarning)
     
-    # Compute FT:
-    im = fft2(im) 
+    # Get args:
+    wlevel, sigma = args.split(";")    
+    wlevel = int(wlevel)
+    sigma  = float(sigma)
 
-    # Median filter: 
-    # tmp   = concatenate((im[0:3,:], im[-2:,:]), axis=0)
-    # im[0,:] = numpy.median(tmp, axis=0);
-    im[0,:] = _medfilt(im[0,:], n)
+    # The wavelet transform to use : {'haar', 'db1'-'db20', 'sym2'-'sym20', 'coif1'-'coif5', 'dmey'}
+    wname = "db2"
 
-    # Compute inverse FFT of the filtered data:
-    im = real(ifft2(im))
+    # Wavelet decomposition:
+    coeffs = wavedec2(im.astype(float32), wname, level=wlevel)
+    coeffsFlt = [coeffs[0]] 
+
+    # FFT transform of horizontal frequency bands:
+    for i in range(1, wlevel + 1):  
+
+        # FFT:
+        fcV = fftshift(fft(coeffs[i][1], axis=0))  
+        my, mx = fcV.shape
+        
+        # Damping of vertical stripes:
+        damp = 1 - npexp(-(arange(-floor(my / 2.),-floor(my / 2.) + my) ** 2) / (2 * (sigma ** 2)))      
+        dampprime = kron(ones((1,mx)), damp.reshape((damp.shape[0],1)))
+        fcV = fcV * dampprime    
+
+        # Inverse FFT:
+        fcVflt = ifft(ifftshift(fcV), axis=0)
+        cVHDtup = (coeffs[i][0], fcVflt, coeffs[i][2])             
+        coeffsFlt.append(cVHDtup)
+
+    # Get wavelet reconstruction:
+    im_f = real(waverec2(coeffsFlt, wname))
 
     # Return image according to input type:
     if (im.dtype == 'uint16'):
         
         # Check extrema for uint16 images:
-        im[im < iinfo(uint16).min] = iinfo(uint16).min
-        im[im > iinfo(uint16).max] = iinfo(uint16).max
+        im_f[im_f < iinfo(uint16).min] = iinfo(uint16).min
+        im_f[im_f > iinfo(uint16).max] = iinfo(uint16).max
 
-        # Return image:
-        return im.astype(uint16)
+        # Return filtered image (an additional row and/or column might be
+        # present):
+        return im_f[0:im.shape[0],0:im.shape[1]].astype(uint16)
     else:
-        return im
+        return im_f[0:im.shape[0],0:im.shape[1]]

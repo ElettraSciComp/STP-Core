@@ -5,7 +5,7 @@
     <SchemaVersion>2.0</SchemaVersion>
     <ProjectGuid>397494a0-035b-4ad0-996a-2799fb86dfcf</ProjectGuid>
     <ProjectHome>.</ProjectHome>
-    <StartupFile>exec_preprocessing.py</StartupFile>
+    <StartupFile>preview_reconstruct.py</StartupFile>
     <SearchPath>
     </SearchPath>
     <WorkingDirectory>.</WorkingDirectory>
@@ -17,7 +17,7 @@
     </InterpreterArguments>
     <EnableNativeCodeDebugging>False</EnableNativeCodeDebugging>
     <InterpreterPath>C:\Users\Franz\Documents\Visual Studio 2012\Projects\STP-Gui\STP-Gui\bin\x64\Release\WinPython-64bit-2.7.10.3\python-2.7.10.amd64\python.exe</InterpreterPath>
-    <CommandLineArguments>255 256 C:\Temp\BrunGeorgos.tdf C:\Temp\BrunGeorgos_corr.tdf 0 0 True True 900 False False 0 oimoen:31;71 1 C:\Temp\log_00.txt</CommandLineArguments>
+    <CommandLineArguments>311 C:\Temp\BrunGeorgos.tdf C:\Temp\BrunGeorgos.raw 3.1416 -31.0 shepp-logan 1.0 False False True True True True 5 False False 100 0 0 False raven:11;1.8 False 0.0 FBP_CUDA 1 1 False - - False 1.0 1000.0 22 150 2.2 True 16 True 2 C:\Temp\StupidFolder C:\Temp\log_00.txt</CommandLineArguments>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
     <DebugSymbols>true</DebugSymbols>
@@ -36,7 +36,7 @@
     <Folder Include="phaseretrieval\" />
     <Folder Include="postprocess\" />
     <Folder Include="preprocess\" />
-    <Folder Include="preprocess\ringrem\" />
+    <Folder Include="preprocess\ringremoval\" />
     <Folder Include="reconstruct\" />
     <Folder Include="utils\" />
   </ItemGroup>
@@ -59,16 +59,15 @@
     <Compile Include="preprocess\extfov_correction.py" />
     <Compile Include="preprocess\extract_flatdark.py" />
     <Compile Include="preprocess\flat_fielding.py" />
-    <Compile Include="preprocess\ringrem\boinhaibel.py" />
-    <Compile Include="preprocess\ringrem\munchetal.py" />
-    <Compile Include="preprocess\ringrem\oimoen.py">
+    <Compile Include="preprocess\ringremoval\boinhaibel.py" />
+    <Compile Include="preprocess\ringremoval\munchetal.py" />
+    <Compile Include="preprocess\ringremoval\oimoen.py">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="preprocess\ringrem\raven.py" />
-    <Compile Include="preprocess\ringrem\rivers.py" />
-    <Compile Include="preprocess\ringrem\sijberspostnov.py" />
-    <Compile Include="preprocess\ringrem\_medfilt.py" />
-    <Compile Include="preprocess\ringrem\__init__.py" />
+    <Compile Include="preprocess\ringremoval\raven.py" />
+    <Compile Include="preprocess\ringremoval\rivers.py" />
+    <Compile Include="preprocess\ringremoval\sijberspostnov.py" />
+    <Compile Include="preprocess\ringremoval\__init__.py" />
     <Compile Include="preprocess\ring_correction.py" />
     <Compile Include="preprocess\__init__.py" />
     <Compile Include="preview_phaseretrieval.py" />

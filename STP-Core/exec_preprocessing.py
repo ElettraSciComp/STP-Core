@@ -222,7 +222,7 @@ def main(argv):
 
 	# Prepare the working plan for flat and dark images:
 	log = open(logfilename,"a")
-	log.write(linesep + "\t-------")
+	log.write(linesep + "\t--------------")
 	log.write(linesep + "\tPreparing the working plan...")				
 	log.close()
 
@@ -240,6 +240,7 @@ def main(argv):
 		im = flat_fielding(im, idx, plan, flat_end, half_half, half_half_line, norm_sx, norm_dx)			
 		im = extfov_correction(im, ext_fov, ext_fov_rot_right, ext_fov_overlap)
 		im = ring_correction (im, ringrem, flat_end, plan['skip_flat_after'], half_half, half_half_line, ext_fov)						
+		
 		# Get the corrected outshape:		
 		outshape = tdf.get_dset_shape(im.shape[1], num_sinos, im.shape[0])		
 
@@ -262,7 +263,7 @@ def main(argv):
 	# Log infos:
 	log = open(logfilename,"a")
 	log.write(linesep + "\tWorking plan prepared correctly.")	
-	log.write(linesep + "\t-------")
+	log.write(linesep + "\t--------------")
 	log.write(linesep + "\tPerforming pre processing...")			
 	log.close()	
 

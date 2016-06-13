@@ -90,8 +90,8 @@ def prepare_plan(im, beta, delta, energy, distance, pixsize, method=1, padding=F
 	dim0_o = im.shape[0]
 	dim1_o = im.shape[1]
 	if (padding):		
-		n_pad0 = dim0_o
-		n_pad1 = n_pad1 = im.shape[1] + im.shape[1] / 2
+		n_pad0 = im.shape[0] + im.shape[0] / 2
+		n_pad1 = im.shape[1] + im.shape[1] / 2
 	else:
 		n_pad0 = dim0_o
 		n_pad1 = dim1_o

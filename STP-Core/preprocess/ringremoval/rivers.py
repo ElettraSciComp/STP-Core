@@ -40,82 +40,76 @@
 
 #
 # Author: Francesco Brun
-# Last modified: May, 24th 2016
+# Last modified: May, 31th 2016
 #
 
-from numpy import uint16, float32, iinfo, finfo, ndarray
-from numpy import copy, pad
+from numpy import uint16, float32, iinfo, finfo, copy, zeros, median
 
-from _medfilt import _medfilt
 
-def oimoen(im, args):
-    """Process a sinogram image with the Oimoen de-striping algorithm.
+def _medfilt (x, k):
+	"""Apply a length-k median filter to a 1D array x.
+	Boundaries are extended by repeating endpoints.
+
+	Code from https://gist.github.com/bhawkins/3535131
+
+	"""	
+	k2 = (k - 1) // 2
+	y = zeros ((len (x), k), dtype=x.dtype)
+	y[:,k2] = x
+	for i in range (k2):
+		j = k2 - i
+		y[j:,i] = x[:-j]
+		y[:j,i] = x[0]
+		y[:-j,-(i+1)] = x[j:]
+		y[-j:,-(i+1)] = x[-1]
+		
+	return median (y, axis=1)
+
+
+def rivers(im, args):
+    """Process a sinogram image with the Rivers de-striping algorithm.
 
     Parameters
     ----------
     im : array_like
         Image data as numpy array.
 
-    n1 : int
-        Size of the median radial filtering.
-
-    n2 : int
-        Size of the median azimutal filtering.
+    n : int
+        Size of the median filtering.
        
-    Example (using tifffile.py)
+    Example (using tiffile.py)
     --------------------------
-    >>> im = imread('sino_orig.tif')
-    >>> im = oimoen(im, 51, 51)    
-    >>> imsave('sino_flt.tif', im) 
+    >>> im = imread('original.tif')
+    >>> im = rivers(im, 13)    
+    >>> imsave('filtered.tif', im) 
 
     References
     ----------
-    M.J. Oimoen, An effective filter for removal of production artifacts in U.S. 
-    geological survey 7.5-minute digital elevation models, Proc. of the 14th Int. 
-    Conf. on Applied Geologic Remote Sensing, Las Vegas, Nevada, 6-8 November, 
-    2000, pp. 311-319.
+    M. Rivers, http://cars9.uchicago.edu/software/epics/tomoRecon.html.
 
-    """    
+    """   
     # Get args:
     param1, param2 = args.split(";")    
-    n1 = int(param1) 
-    n2 = int(param2)
+    n = int(param1)
 
-	# Padding:
-    im = pad(im, ((n2 + n1, n2 + n1), (0, 0)), 'symmetric')
-    im = pad(im, ((0, 0), (n1 + n2, n1 + n2)), 'edge')
+    # Compute mean of each column:
+    col = im.mean(axis=0)
 
-    im1 = im.copy()
-
-    # Horizontal median filtering:
-    for i in range(0, im1.shape[0]):
-
-        im1[i,:] = _medfilt(im1[i,:], n1)        
-
-    # Create difference image (high-pass filter):
-    diff = im - im1
-
-    # Vertical filtering:
-    for i in range(0, diff.shape[1]):
-
-        diff[:,i] = _medfilt(diff[:,i], n2)
-
-    # Compensate output image:
-    im = im - diff
-
-	# Crop padded image:
-    im = im[(n2 + n1):im.shape[0] - (n1 + n2), (n1 + n2):im.shape[1] - (n1 + n2)]	
+    # Perform low pass filtering:
+    flt_col = _medfilt(col, n)
+    
+    # Apply compensation on each row:
+    for i in range(0, im.shape[0]):
+        im[i,] = im[i,] - (col - flt_col)
 
     # Return image according to input type:
     if (im.dtype == 'uint16'):
-
+        
         # Check extrema for uint16 images:
         im[im < iinfo(uint16).min] = iinfo(uint16).min
         im[im > iinfo(uint16).max] = iinfo(uint16).max
 
         # Return image:
         return im.astype(uint16)
-
     else:
-
         return im
