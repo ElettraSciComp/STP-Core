@@ -1,46 +1,28 @@
-﻿# #########################################################################
+﻿###########################################################################
 # (C) 2016 Elettra - Sincrotrone Trieste S.C.p.A.. All rights reserved.   #
 #                                                                         #
-# Copyright 2016. Elettra - Sincrotrone Trieste S.C.p.A. THE COMPANY      #
-# ELETTRA - SINCROTRONE TRIESTE S.C.P.A. IS NOT REPONSIBLE FOR THE USE    #
-# OF THIS SOFTWARE. If software is modified to produce derivative works,  #
-# such modified software should be clearly marked, so as not to confuse   #
-# it with the version available from Elettra Sincrotrone Trieste S.C.p.A. #
 #                                                                         #
-# Additionally, redistribution and use in source and binary forms, with   #
-# or without modification, are permitted provided that the following      #
-# conditions are met:                                                     #
+# This file is part of STP-Core, the Python core of SYRMEP Tomo Project,  #
+# a software tool for the reconstruction of experimental CT datasets.     #
 #                                                                         #
-#     * Redistributions of source code must retain the above copyright    #
-#       notice, this list of conditions and the following disclaimer.     #
+# STP-Core is free software: you can redistribute it and/or modify it     #
+# under the terms of the GNU General Public License as published by the   #
+# Free Software Foundation, either version 3 of the License, or (at your  #
+# option) any later version.                                              #
 #                                                                         #
-#     * Redistributions in binary form must reproduce the above copyright #
-#       notice, this list of conditions and the following disclaimer in   #
-#       the documentation and/or other materials provided with the        #
-#       distribution.                                                     #
+# STP-Core is distributed in the hope that it will be useful, but WITHOUT #
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or   #
+# FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License    #
+# for more details.                                                       #
 #                                                                         #
-#     * Neither the name of Elettra - Sincrotrone Trieste S.C.p.A nor     #
-#       the names of its contributors may be used to endorse or promote   #
-#       products derived from this software without specific prior        #
-#       written permission.                                               #
+# You should have received a copy of the GNU General Public License       #
+# along with STP-Core. If not, see <http://www.gnu.org/licenses/>.        #
 #                                                                         #
-# THIS SOFTWARE IS PROVIDED BY ELETTRA - SINCROTRONE TRIESTE S.C.P.A. AND #
-# CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING,  #
-# BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND       #
-# FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL      #
-# ELETTRA - SINCROTRONE TRIESTE S.C.P.A. OR CONTRIBUTORS BE LIABLE FOR    #
-# ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL  #
-# DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE       #
-# GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS           #
-# INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER    #
-# IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR         #
-# OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF  #
-# ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.                              #
-# #########################################################################
+###########################################################################
 
 #
 # Author: Francesco Brun
-# Last modified: April, 4th 2016
+# Last modified: July, 8th 2016
 #
 
 # python:
@@ -369,8 +351,8 @@ def write_log_gridrec(lock, fname1, fname2, logfilename, cputime, iotime):
 
 def process_gridrec(lock, int_from, int_to, num_sinos, infile, outpath, preprocessing_required, corr_plan, norm_sx, 
 			norm_dx, flat_end, half_half, 
-			half_half_line, ext_fov, ext_fov_rot_right, ext_fov_overlap, ringrem, 
-			angles, offset, logtransform, param1, circle, scale, pad, zerone_mode, dset_min, dset_max, decim_factor, 
+			half_half_line, ext_fov, ext_fov_rot_right, ext_fov_overlap, ringrem, angles, angles_projfrom, angles_projto,
+			offset, logtransform, param1, circle, scale, pad, zerone_mode, dset_min, dset_max, decim_factor, 
 			downsc_factor, corr_offset,	postprocess_required, convert_opt, crop_opt, outprefix, logfilename):
 	"""To do...
 
@@ -391,7 +373,12 @@ def process_gridrec(lock, int_from, int_to, num_sinos, infile, outpath, preproce
 		else:
 			im2 = im1
 		f_in.close()
-		t1 = time() 		
+		t1 = time() 	
+
+
+		# Apply projection removal (if required):
+		im1 = im1[angles_projfrom:angles_projto, :]				
+		im2 = im2[angles_projfrom:angles_projto, :]				
 			
 		# Perform the preprocessing of the sinograms (if required):
 		if (preprocessing_required):
@@ -443,8 +430,8 @@ def process_gridrec(lock, int_from, int_to, num_sinos, infile, outpath, preproce
 
 
 def process(lock, int_from, int_to, num_sinos, infile, outpath, preprocessing_required, corr_plan, norm_sx, norm_dx, flat_end, half_half, 
-			half_half_line, ext_fov, ext_fov_rot_right, ext_fov_overlap, ringrem,  
-			angles, offset, logtransform, param1, circle, scale, pad, method, zerone_mode, dset_min, dset_max, decim_factor, 
+			half_half_line, ext_fov, ext_fov_rot_right, ext_fov_overlap, ringrem, angles, angles_projfrom, angles_projto,
+            offset, logtransform, param1, circle, scale, pad, method, zerone_mode, dset_min, dset_max, decim_factor, 
 			downsc_factor, corr_offset,	postprocess_required, convert_opt, crop_opt, outprefix, logfilename):
 	"""To do...
 
@@ -520,7 +507,10 @@ def process(lock, int_from, int_to, num_sinos, infile, outpath, preprocessing_re
 			dset = f_in['exchange/data']
 		im = tdf.read_sino(dset,i).astype(float32)		
 		f_in.close()
-		t1 = time() 		
+		t1 = time() 	
+
+		# Apply projection removal (if required):
+		im = im[angles_projfrom:angles_projto, :]				
 			
 		# Perform the preprocessing of the sinogram (if required):
 		if (preprocessing_required):
@@ -533,7 +523,7 @@ def process(lock, int_from, int_to, num_sinos, infile, outpath, preprocessing_re
 		im = reconstruct(im, angles, offset, logtransform, param1, circle, scale, pad, method, 
 						zerone_mode, dset_min, dset_max, decim_factor, downsc_factor, corr_offset).astype(float32)			
 		
-		# Appy post-processing (if required):
+		# Apply post-processing (if required):
 		if postprocess_required:
 			im = postprocess(im, convert_opt, crop_opt)
 		else:
@@ -644,9 +634,12 @@ def main(argv):
 	postprocess_required = True if argv[28] == "True" else False
 	convert_opt = argv[29]
 	crop_opt = argv[30]
+
+	angles_projfrom = int(argv[31])	
+	angles_projto = int(argv[32])
 	
-	nr_threads = int(argv[31])	
-	logfilename = argv[32]	
+	nr_threads = int(argv[33])	
+	logfilename = argv[34]	
 	process_id = int(logfilename[-6:-4])
 	
 	# Check prefixes and path:
@@ -731,13 +724,13 @@ def main(argv):
 			end = ( (int_to - int_from + 1) / nr_threads)*(num + 1) + int_from - 1
 		if (reconmethod == 'GRIDREC'):
 			Process(target=process_gridrec, args=(lock, start, end, num_sinos, infile, outpath, preprocessing_required, corrplan, norm_sx, 						norm_dx, flat_end, half_half, half_half_line, ext_fov, ext_fov_rot_right, ext_fov_overlap, ringrem, 
-						angles, offset, logtrsf, param1, circle, scale, overpad, 
+						angles, angles_projfrom, angles_projto, offset, logtrsf, param1, circle, scale, overpad, 
 						zerone_mode, dset_min, dset_max, decim_factor, downsc_factor, corr_offset, 
 						postprocess_required, convert_opt, crop_opt, outprefix, logfilename )).start()
 		else:
 			Process(target=process, args=(lock, start, end, num_sinos, infile, outpath, preprocessing_required, corrplan, norm_sx, 
 						norm_dx, flat_end, half_half, half_half_line, ext_fov, ext_fov_rot_right, ext_fov_overlap, ringrem, 
-						angles, offset, logtrsf, param1, circle, scale, overpad, 
+						angles, angles_projfrom, angles_projto, offset, logtrsf, param1, circle, scale, overpad, 
 						reconmethod, zerone_mode, dset_min, dset_max, decim_factor, downsc_factor, corr_offset, 
 						postprocess_required, convert_opt, crop_opt, outprefix, logfilename )).start()
 

@@ -1,46 +1,28 @@
-﻿# #########################################################################
+﻿###########################################################################
 # (C) 2016 Elettra - Sincrotrone Trieste S.C.p.A.. All rights reserved.   #
 #                                                                         #
-# Copyright 2016. Elettra - Sincrotrone Trieste S.C.p.A. THE COMPANY      #
-# ELETTRA - SINCROTRONE TRIESTE S.C.P.A. IS NOT REPONSIBLE FOR THE USE    #
-# OF THIS SOFTWARE. If software is modified to produce derivative works,  #
-# such modified software should be clearly marked, so as not to confuse   #
-# it with the version available from Elettra Sincrotrone Trieste S.C.p.A. #
 #                                                                         #
-# Additionally, redistribution and use in source and binary forms, with   #
-# or without modification, are permitted provided that the following      #
-# conditions are met:                                                     #
+# This file is part of STP-Core, the Python core of SYRMEP Tomo Project,  #
+# a software tool for the reconstruction of experimental CT datasets.     #
 #                                                                         #
-#     * Redistributions of source code must retain the above copyright    #
-#       notice, this list of conditions and the following disclaimer.     #
+# STP-Core is free software: you can redistribute it and/or modify it     #
+# under the terms of the GNU General Public License as published by the   #
+# Free Software Foundation, either version 3 of the License, or (at your  #
+# option) any later version.                                              #
 #                                                                         #
-#     * Redistributions in binary form must reproduce the above copyright #
-#       notice, this list of conditions and the following disclaimer in   #
-#       the documentation and/or other materials provided with the        #
-#       distribution.                                                     #
+# STP-Core is distributed in the hope that it will be useful, but WITHOUT #
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or   #
+# FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License    #
+# for more details.                                                       #
 #                                                                         #
-#     * Neither the name of Elettra - Sincotrone Trieste S.C.p.A nor      #
-#       the names of its contributors may be used to endorse or promote   #
-#       products derived from this software without specific prior        #
-#       written permission.                                               #
+# You should have received a copy of the GNU General Public License       #
+# along with STP-Core. If not, see <http://www.gnu.org/licenses/>.        #
 #                                                                         #
-# THIS SOFTWARE IS PROVIDED BY ELETTRA - SINCROTRONE TRIESTE S.C.P.A. AND #
-# CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING,  #
-# BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND       #
-# FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL      #
-# ELETTRA - SINCROTRONE TRIESTE S.C.P.A. OR CONTRIBUTORS BE LIABLE FOR    #
-# ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL  #
-# DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE       #
-# GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS           #
-# INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER    #
-# IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR         #
-# OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF  #
-# ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.                              #
-# #########################################################################
+###########################################################################
 
 #
 # Author: Francesco Brun
-# Last modified: May, 9th 2016
+# Last modified: July, 8th 2016
 #
 
 # python:
@@ -101,10 +83,6 @@ def reconstruct(im, angles, offset, logtransform, param1, circle, scale, pad, me
 	"""
 	offset = int(round(offset))
 
-	# Decimate projections if required:
-	#if decim_factor > 1:
-	#	im = im[::decim_factor,:]	
-	
 	# Upscale projections (if required):
 	if (abs(scale - 1.0) > finfo(float32).eps):		
 		siz_orig1 = im.shape[1]		
@@ -126,10 +104,6 @@ def reconstruct(im, angles, offset, logtransform, param1, circle, scale, pad, me
 			tmp = im[:,im.shape[1] - 1] # Get last column
 			tmp = tile(tmp, (abs(offset),1)) # Replicate the last column the right number of times
 			im = concatenate((im,tmp.T), axis=1) # Concatenate tmp after the image	
-	
-	# Downscale projections (without pixel averaging):
-	#if downsc_factor > 1:
-	#	im = im[:,::downsc_factor]			
 			
 	# Scale image to [0,1] range (if required):
 	if (zerone_mode):
@@ -199,7 +173,8 @@ def reconstruct(im, angles, offset, logtransform, param1, circle, scale, pad, me
 		
 def process(sino_idx, num_sinos, infile, outfile, preprocessing_required, corr_plan, norm_sx, norm_dx, flat_end, half_half, 
 			half_half_line, ext_fov, ext_fov_rot_right, ext_fov_overlap, ringrem, phaseretrieval_required, beta, delta, 
-			energy, distance, pixsize, phrtpad, approx_win, angles, offset, logtransform, param1, circle, scale, pad, method, 
+			energy, distance, pixsize, phrtpad, approx_win, angles, angles_projfrom, angles_projto,
+			offset, logtransform, param1, circle, scale, pad, method, 
 			zerone_mode, dset_min, dset_max, decim_factor, downsc_factor, corr_offset, postprocess_required, convert_opt, 
 			crop_opt, nr_threads, logfilename):
 	"""To do...
@@ -234,7 +209,12 @@ def process(sino_idx, num_sinos, infile, outfile, preprocessing_required, corr_p
 			zrange     = zrange[0:approx_win]
 		
 		# Read one sinogram to get the proper dimensions:
-		test_im = tdf.read_sino(dset, zrange[0]).astype(float32)		
+		test_im = tdf.read_sino(dset, zrange[0]).astype(float32)	
+
+		# Apply projection removal (if required):
+		test_im = test_im[angles_projfrom:angles_projto, :]
+
+		# Apply decimation and downscaling (if required):	
 		test_im = test_im[::decim_factor, ::downsc_factor]
 
 		# Perform the pre-processing of the first sinogram to get the right dimension:
@@ -251,8 +231,14 @@ def process(sino_idx, num_sinos, infile, outfile, preprocessing_required, corr_p
 
 		# Reading all the the sinos from TDF file and close:
 		for ct in range(1, approx_win):
-			
+
+			# Read the sinogram:
 			test_im = tdf.read_sino(dset, zrange[ct]).astype(float32)
+
+			# Apply projection removal (if required):
+			test_im = test_im[angles_projfrom:angles_projto, :]
+
+			# Apply decimation and downscaling (if required):	
 			test_im = test_im[::decim_factor, ::downsc_factor]
 			
 			# Perform the pre-processing for each sinogram of the bunch:
@@ -295,7 +281,10 @@ def process(sino_idx, num_sinos, infile, outfile, preprocessing_required, corr_p
 		im = tdf.read_sino(dset,sino_idx).astype(float32)		
 		f_in.close()
 
-		# Downscale and decimate the sinogram:
+		# Apply projection removal (if required):
+		im = im[angles_projfrom:angles_projto, :]
+
+		# Apply decimation and downscaling (if required):	
 		im = im[::decim_factor,::downsc_factor]
 		sino_idx = sino_idx/downsc_factor	
 			
@@ -304,10 +293,8 @@ def process(sino_idx, num_sinos, infile, outfile, preprocessing_required, corr_p
 			im = flat_fielding (im, sino_idx, corr_plan, flat_end, half_half, half_half_line/decim_factor, 
 								norm_sx, norm_dx).astype(float32)		
 			im = extfov_correction (im, ext_fov, ext_fov_rot_right, ext_fov_overlap)
-			#imsave('C:\\Temp\\StupidFolder\\sinoprimaringrem.tif', im.astype(float32))
 			im = ring_correction (im, ringrem, flat_end, corr_plan['skip_flat_after'], half_half, 
 								half_half_line/decim_factor, ext_fov)
-			#imsave('C:\\Temp\\StupidFolder\\sinodoporingrem.tif', im.astype(float32))
 
 
 	# Actual reconstruction:
@@ -369,8 +356,8 @@ def main(argv):
 	infile = argv[1]
 	outfile = argv[2]
 
-	# Essential reconstruction parameters::
-	angles = float(argv[3])
+	# Essential reconstruction parameters:
+	angles = float(argv[3])	
 	offset = float(argv[4])
 	param1 = argv[5]	
 	scale  = int(float(argv[6]))
@@ -430,13 +417,16 @@ def main(argv):
 	phrtpad = True if argv[35] == "True" else False
 	approx_win = int(argv[36])	
 
-	preprocessingplan_fromcache = True if argv[37] == "True" else False
+	angles_projfrom = int(argv[37])	
+	angles_projto = int(argv[38])	
+
+	preprocessingplan_fromcache = True if argv[39] == "True" else False
 	
-	nr_threads = int(argv[38])	
-	tmppath = argv[39]	
+	nr_threads = int(argv[40])	
+	tmppath = argv[41]	
 	if not tmppath.endswith(sep): tmppath += sep
 		
-	logfilename = argv[40]		
+	logfilename = argv[42]		
 			
 	# Open the HDF5 file:
 	f_in = getHDF5(infile, 'r')
@@ -499,7 +489,8 @@ def main(argv):
 	# Run computation:	
 	process( sino_idx, num_sinos, infile, outfile, preprocessing_required, corrplan, norm_sx, 
 				norm_dx, flat_end, half_half, half_half_line, ext_fov, ext_fov_rot_right, ext_fov_overlap, ringrem, 
-				phaseretrieval_required, beta, delta, energy, distance, pixsize, phrtpad, approx_win, angles, offset, 
+				phaseretrieval_required, beta, delta, energy, distance, pixsize, phrtpad, approx_win, angles, 
+				angles_projfrom, angles_projto, offset, 
 				logtrsf, param1, circle, scale, overpad, reconmethod, zerone_mode, dset_min, dset_max, decim_factor, 
 				downsc_factor, corr_offset, postprocess_required, convert_opt, crop_opt, nr_threads, logfilename )		
 
