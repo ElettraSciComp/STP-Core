@@ -5,7 +5,7 @@
     <SchemaVersion>2.0</SchemaVersion>
     <ProjectGuid>397494a0-035b-4ad0-996a-2799fb86dfcf</ProjectGuid>
     <ProjectHome>.</ProjectHome>
-    <StartupFile>preview_reconstruct.py</StartupFile>
+    <StartupFile>exec_preprocessing.py</StartupFile>
     <SearchPath>
     </SearchPath>
     <WorkingDirectory>.</WorkingDirectory>
@@ -16,8 +16,8 @@
     <InterpreterArguments>
     </InterpreterArguments>
     <EnableNativeCodeDebugging>False</EnableNativeCodeDebugging>
-    <InterpreterPath>C:\Users\Franz\Documents\Visual Studio 2012\Projects\STP-Gui\STP-Gui\bin\x64\Release\WinPython-64bit-2.7.10.3\python-2.7.10.amd64\python.exe</InterpreterPath>
-    <CommandLineArguments>311 C:\Temp\BrunGeorgos.tdf C:\Temp\BrunGeorgos.raw 3.1416 -31.0 shepp-logan 1.0 False False True True True True 5 False False 100 0 0 False raven:11;1.8 False 0.0 FBP_CUDA 1 1 False - - False 1.0 1000.0 22 150 2.2 True 16 True 2 C:\Temp\StupidFolder C:\Temp\log_00.txt</CommandLineArguments>
+    <InterpreterPath>C:\Users\Franz\Documents\Visual Studio 2012\Projects\STP-Gui\STP-Gui\bin\x64\Release\python\python-2.7.10.amd64\python.exe</InterpreterPath>
+    <CommandLineArguments>255 256 C:\Temp\BrunGeorgos_corr.tdf C:\Temp\BrunGeorgos_corr_corr.tdf 11 11 True True 900 False False 0 rivers:11;0 1 C:\Temp\log_00.txt</CommandLineArguments>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
     <DebugSymbols>true</DebugSymbols>

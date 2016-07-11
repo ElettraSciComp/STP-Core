@@ -66,7 +66,7 @@ def _write_data(lock, im, index, outfile, outshape, outtype, logfilename, cputim
 	finally:
 		lock.release()	
 
-def _process (lock, int_from, int_to, infile, outfile, outshape, outtype, plan, norm_sx, norm_dx, flat_end, 
+def _process (lock, int_from, int_to, infile, outfile, outshape, outtype, skipflat, plan, norm_sx, norm_dx, flat_end, 
 			 half_half, half_half_line, ext_fov, ext_fov_rot_right, ext_fov_overlap, ringrem, logfilename):
 
 	# Process the required subset of images:
@@ -84,9 +84,13 @@ def _process (lock, int_from, int_to, infile, outfile, outshape, outtype, plan, 
 		t1 = time() 		
 
 		# Perform pre-processing (flat fielding, extended FOV, ring removal):	
-		im = flat_fielding(im, i, plan, flat_end, half_half, half_half_line, norm_sx, norm_dx)			
+		if not skipflat:
+			im = flat_fielding(im, i, plan, flat_end, half_half, half_half_line, norm_sx, norm_dx)			
 		im = extfov_correction(im, ext_fov, ext_fov_rot_right, ext_fov_overlap)
-		im = ring_correction (im, ringrem, flat_end, plan['skip_flat_after'], half_half, half_half_line, ext_fov)
+		if not skipflat:
+			im = ring_correction (im, ringrem, flat_end, plan['skip_flat_after'], half_half, half_half_line, ext_fov)
+		else:
+			im = ring_correction (im, ringrem, False, False, half_half, half_half_line, ext_fov)
 		t2 = time() 		
 								
 		# Save processed image to HDF5 file (atomic procedure - lock used):
@@ -174,20 +178,25 @@ def main(argv):
 	
 	# Open the HDF5 file:	
 	f_in = getHDF5(infile, 'r')
-	if "/tomo" in f_in:
-		dset = f_in['tomo']
+
+	skipflat = False
+	try:
+		if "/tomo" in f_in:
+			dset = f_in['tomo']
+	
+			tomoprefix = 'tomo'
+			flatprefix = 'flat'
+			darkprefix = 'dark'
+		else: 
+			dset = f_in['exchange/data']
+			prov_dset = f_in['provenance/detector_output']		
 		
-		tomoprefix = 'tomo'
-		flatprefix = 'flat'
-		darkprefix = 'dark'
-	else: 
-		dset = f_in['exchange/data']
-		prov_dset = f_in['provenance/detector_output']		
-		
-		tomoprefix = prov_dset.attrs['tomo_prefix']
-		flatprefix = prov_dset.attrs['flat_prefix']
-		darkprefix = prov_dset.attrs['dark_prefix']
-		
+			tomoprefix = prov_dset.attrs['tomo_prefix']
+			flatprefix = prov_dset.attrs['flat_prefix']
+			darkprefix = prov_dset.attrs['dark_prefix']
+	
+	except:
+		skipflat = True
 		
 	num_proj = tdf.get_nr_projs(dset)
 	num_sinos = tdf.get_nr_sinos(dset)
@@ -209,7 +218,10 @@ def main(argv):
 	log.close()
 
 	# Extract flat and darks:
-	plan = extract_flatdark(f_in, flat_end, logfilename)
+	if not skipflat:
+		plan = extract_flatdark(f_in, flat_end, logfilename)
+	else:
+		plan = False
 	
 	# Outfile shape can be determined only after first processing in ext FOV mode:
 	if (ext_fov):
@@ -219,9 +231,13 @@ def main(argv):
 		im = tdf.read_sino(dset,idx).astype(float32)		
 	
 		# Perform pre-processing (flat fielding, extended FOV, ring removal):	
-		im = flat_fielding(im, idx, plan, flat_end, half_half, half_half_line, norm_sx, norm_dx)			
+		if not skipflat:
+			im = flat_fielding(im, idx, plan, flat_end, half_half, half_half_line, norm_sx, norm_dx)			
 		im = extfov_correction(im, ext_fov, ext_fov_rot_right, ext_fov_overlap)
-		im = ring_correction (im, ringrem, flat_end, plan['skip_flat_after'], half_half, half_half_line, ext_fov)						
+		if not skipflat:
+			im = ring_correction (im, ringrem, flat_end, plan['skip_flat_after'], half_half, half_half_line, ext_fov)	
+		else:
+			im = ring_correction (im, ringrem, False, False, half_half, half_half_line, ext_fov)	
 		
 		# Get the corrected outshape:		
 		outshape = tdf.get_dset_shape(im.shape[1], num_sinos, im.shape[0])		
@@ -256,13 +272,14 @@ def main(argv):
 			end = num_sinos - 1
 		else:
 			end = (num_sinos / nr_threads)*(num + 1) - 1
-		Process(target=_process, args=(lock, start, end, infile, outfile, outshape, im.dtype, plan, norm_sx, norm_dx, flat_end, 
-								half_half, half_half_line, ext_fov, ext_fov_rot_right, ext_fov_overlap, ringrem, logfilename )).start()
+		Process(target=_process, args=(lock, start, end, infile, outfile, outshape, im.dtype, skipflat, plan, norm_sx, 
+				norm_dx, flat_end, half_half, half_half_line, ext_fov, ext_fov_rot_right, ext_fov_overlap, ringrem, 
+				logfilename )).start()
 
 
 	#start = 0
 	#end = num_sinos - 1
-	#_process(lock, start, end, infile, outfile, outshape, im.dtype, plan, norm_sx, norm_dx, flat_end, 
+	#_process(lock, start, end, infile, outfile, outshape, im.dtype, skipflat, plan, norm_sx, norm_dx, flat_end, 
 	#		half_half, half_half_line, ext_fov, ext_fov_rot_right, ext_fov_overlap, ringrem, logfilename)
 
 	# 255 256 C:\Temp\BrunGeorgos.tdf C:\Temp\BrunGeorgos_corr.tdf 11 11 True True 900 False False 0 rivers:11;0 1 C:\Temp\log_00.txt

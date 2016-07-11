@@ -108,11 +108,17 @@ def main(argv):
 	
 	# Open the HDF5 file:	
 	f_in = getHDF5(infile, 'r')
-	if "/tomo" in f_in:
-		dset = f_in['tomo']		
-	else: 
-		dset = f_in['exchange/data']
-		prov_dset = f_in['provenance/detector_output']			
+	
+	skipflat = False
+	try:
+		if "/tomo" in f_in:
+			dset = f_in['tomo']		
+		else: 
+			dset = f_in['exchange/data']
+			prov_dset = f_in['provenance/detector_output']			
+	
+	except:
+		skipflat = True
 		
 	num_proj = tdf.get_nr_projs(dset)
 	num_sinos = tdf.get_nr_sinos(dset)
@@ -125,21 +131,29 @@ def main(argv):
 		exit()		
 
 	# Get flat and darks from cache or from file:
+	skipflat = False
 	try:
 		corrplan = cache2plan(infile, tmppath)
 	except Exception as e:
 		#print "Error(s) when reading from cache"
-		corrplan = extract_flatdark(f_in, flat_end, logfilename)
-		plan2cache(corrplan, infile, tmppath)		
+		try:
+			corrplan = extract_flatdark(f_in, flat_end, logfilename)
+			plan2cache(corrplan, infile, tmppath)		
+		except:
+			skipflat = True
 
 	# Read input image:
 	im = tdf.read_sino(dset,idx).astype(float32)		
 	f_in.close()	
 
 	# Perform pre-processing (flat fielding, extended FOV, ring removal):	
-	im = flat_fielding(im, idx, corrplan, flat_end, half_half, half_half_line, norm_sx, norm_dx)			
+	if not skipflat:
+		im = flat_fielding(im, idx, corrplan, flat_end, half_half, half_half_line, norm_sx, norm_dx)			
 	im = extfov_correction(im, ext_fov, ext_fov_rot_right, ext_fov_overlap)
-	im = ring_correction (im, ringrem, flat_end, corrplan['skip_flat_after'], half_half, half_half_line, ext_fov)							
+	if not skipflat:
+		im = ring_correction (im, ringrem, flat_end, corrplan['skip_flat_after'], half_half, half_half_line, ext_fov)		
+	else:
+		im = ring_correction (im, ringrem, False, False, half_half, half_half_line, ext_fov)						
 	
 	# Write down reconstructed preview file (file name modified with metadata):		
 	im = im.astype(float32)
