@@ -28,7 +28,7 @@
 from sys import argv, exit
 from os import remove, sep,  linesep
 from os.path import exists
-from numpy import float32, amin, amax
+from numpy import float32, amin, amax, isscalar
 from time import time
 from multiprocessing import Process, Lock
 
@@ -179,25 +179,22 @@ def main(argv):
 	# Open the HDF5 file:	
 	f_in = getHDF5(infile, 'r')
 
-	skipflat = False
-	try:
-		if "/tomo" in f_in:
-			dset = f_in['tomo']
-	
-			tomoprefix = 'tomo'
-			flatprefix = 'flat'
-			darkprefix = 'dark'
-		else: 
-			dset = f_in['exchange/data']
+
+	if "/tomo" in f_in:
+		dset = f_in['tomo']
+
+		tomoprefix = 'tomo'
+		flatprefix = 'flat'
+		darkprefix = 'dark'
+	else: 
+		dset = f_in['exchange/data']
+		if "/provenance/detector_output" in f_in:
 			prov_dset = f_in['provenance/detector_output']		
-		
+	
 			tomoprefix = prov_dset.attrs['tomo_prefix']
 			flatprefix = prov_dset.attrs['flat_prefix']
 			darkprefix = prov_dset.attrs['dark_prefix']
-	
-	except:
-		skipflat = True
-		
+			
 	num_proj = tdf.get_nr_projs(dset)
 	num_sinos = tdf.get_nr_sinos(dset)
 	
@@ -218,10 +215,11 @@ def main(argv):
 	log.close()
 
 	# Extract flat and darks:
-	if not skipflat:
-		plan = extract_flatdark(f_in, flat_end, logfilename)
+	plan = extract_flatdark(f_in, flat_end, logfilename)
+	if (isscalar(plan['im_flat'])):
+		skipflat = True
 	else:
-		plan = False
+		skipflat = False
 	
 	# Outfile shape can be determined only after first processing in ext FOV mode:
 	if (ext_fov):

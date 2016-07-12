@@ -28,7 +28,7 @@
 from sys import argv, exit
 from os import remove, sep,  linesep
 from os.path import exists
-from numpy import float32, nanmin, nanmax
+from numpy import float32, nanmin, nanmax, isscalar
 from time import time
 from multiprocessing import Process, Lock
 
@@ -136,11 +136,12 @@ def main(argv):
 		corrplan = cache2plan(infile, tmppath)
 	except Exception as e:
 		#print "Error(s) when reading from cache"
-		try:
-			corrplan = extract_flatdark(f_in, flat_end, logfilename)
-			plan2cache(corrplan, infile, tmppath)		
-		except:
+		corrplan = extract_flatdark(f_in, flat_end, logfilename)
+		if (isscalar(corrplan['im_flat'])):
 			skipflat = True
+		else:
+			plan2cache(corrplan, infile, tmppath)					
+			
 
 	# Read input image:
 	im = tdf.read_sino(dset,idx).astype(float32)		
@@ -159,6 +160,8 @@ def main(argv):
 	im = im.astype(float32)
 	outfile = outfile + '_' + str(im.shape[1]) + 'x' + str(im.shape[0]) + '_' + str( nanmin(im)) + '$' + str( nanmax(im) )	
 	im.tofile(outfile)
+
+	# 255 C:\Temp\Asterisco_corr.tdf C:\Temp\BrunGeorgos 11 11 True True 900 False False 0 rivers:11;0 1 C:\Temp\log_00.txt
 
 	
 if __name__ == "__main__":

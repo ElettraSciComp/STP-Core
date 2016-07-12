@@ -29,7 +29,7 @@
 from sys import argv, exit
 from os import remove, sep, linesep, listdir
 from os.path import exists, dirname, basename, splitext
-from numpy import array, finfo, copy, float32, double, amin, amax, tile, concatenate, asarray
+from numpy import array, finfo, copy, float32, double, amin, amax, tile, concatenate, asarray, isscalar
 from numpy import empty, reshape, log as nplog, arange, squeeze, fromfile, ndarray, where, meshgrid
 from time import time
 from multiprocessing import Process, Array
@@ -171,7 +171,7 @@ def reconstruct(im, angles, offset, logtransform, param1, circle, scale, pad, me
 #		fname = 'C:\\Temp\\StupidFolder\\proj_' + str(ct).zfill(4) + '.tif'
 #		imsave(fname, a.astype(float32))
 		
-def process(sino_idx, num_sinos, infile, outfile, preprocessing_required, corr_plan, norm_sx, norm_dx, flat_end, half_half, 
+def process(sino_idx, num_sinos, infile, outfile, preprocessing_required, corr_plan, skipflat, norm_sx, norm_dx, flat_end, half_half, 
 			half_half_line, ext_fov, ext_fov_rot_right, ext_fov_overlap, ringrem, phaseretrieval_required, beta, delta, 
 			energy, distance, pixsize, phrtpad, approx_win, angles, angles_projfrom, angles_projto,
 			offset, logtransform, param1, circle, scale, pad, method, 
@@ -219,10 +219,15 @@ def process(sino_idx, num_sinos, infile, outfile, preprocessing_required, corr_p
 
 		# Perform the pre-processing of the first sinogram to get the right dimension:
 		if (preprocessing_required):
-			test_im = flat_fielding (test_im, zrange[0]/downsc_factor, corr_plan, flat_end, half_half, 
+			if not skipflat:
+				test_im = flat_fielding (test_im, zrange[0]/downsc_factor, corr_plan, flat_end, half_half, 
 										half_half_line/decim_factor, norm_sx, norm_dx).astype(float32)	
 			test_im = extfov_correction (test_im, ext_fov, ext_fov_rot_right, ext_fov_overlap/downsc_factor).astype(float32)			
-			test_im = ring_correction (test_im, ringrem, flat_end, corr_plan['skip_flat_after'], half_half, 
+			if not skipflat:
+				test_im = ring_correction (test_im, ringrem, flat_end, corr_plan['skip_flat_after'], half_half, 
+											half_half_line/decim_factor, ext_fov).astype(float32)	
+			else:
+				test_im = ring_correction (test_im, ringrem, False, False, half_half, 
 											half_half_line/decim_factor, ext_fov).astype(float32)	
 		
 		# Now we can allocate memory for the bunch of slices:		
@@ -243,10 +248,15 @@ def process(sino_idx, num_sinos, infile, outfile, preprocessing_required, corr_p
 			
 			# Perform the pre-processing for each sinogram of the bunch:
 			if (preprocessing_required):
-				test_im = flat_fielding (test_im, zrange[ct]/downsc_factor, corr_plan, flat_end, half_half, 
+				if not skipflat:
+					test_im = flat_fielding (test_im, zrange[ct]/downsc_factor, corr_plan, flat_end, half_half, 
 											half_half_line/decim_factor, norm_sx, norm_dx).astype(float32)	
-				test_im = extfov_correction (test_im, ext_fov, ext_fov_rot_right, ext_fov_overlap/downsc_factor).astype(float32)	
-				test_im = ring_correction (test_im, ringrem, flat_end, corr_plan['skip_flat_after'], half_half, 
+				test_im = extfov_correction (test_im, ext_fov, ext_fov_rot_right, ext_fov_overlap/downsc_factor).astype(float32)
+				if not skipflat:
+					test_im = ring_correction (test_im, ringrem, flat_end, corr_plan['skip_flat_after'], half_half, 
+											half_half_line/decim_factor, ext_fov).astype(float32)	
+				else:
+					test_im = ring_correction (test_im, ringrem, False, False, half_half, 
 											half_half_line/decim_factor, ext_fov).astype(float32)	
 			
 			tmp_im[ct,:,:] = test_im
@@ -290,10 +300,15 @@ def process(sino_idx, num_sinos, infile, outfile, preprocessing_required, corr_p
 			
 		# Perform the preprocessing of the sinogram (if required):
 		if (preprocessing_required):
-			im = flat_fielding (im, sino_idx, corr_plan, flat_end, half_half, half_half_line/decim_factor, 
+			if not skipflat:
+				im = flat_fielding (im, sino_idx, corr_plan, flat_end, half_half, half_half_line/decim_factor, 
 								norm_sx, norm_dx).astype(float32)		
 			im = extfov_correction (im, ext_fov, ext_fov_rot_right, ext_fov_overlap)
-			im = ring_correction (im, ringrem, flat_end, corr_plan['skip_flat_after'], half_half, 
+			if not skipflat:
+				im = ring_correction (im, ringrem, flat_end, corr_plan['skip_flat_after'], half_half, 
+								half_half_line/decim_factor, ext_fov)
+			else:
+				im = ring_correction (im, ringrem, False, False, half_half, 
 								half_half_line/decim_factor, ext_fov)
 
 
@@ -461,6 +476,7 @@ def main(argv):
 	
 	# Get correction plan and phase retrieval plan (if required):
 	corrplan = 0	
+	skipflat = False
 	if (preprocessing_required):		
 		# Load flat fielding plan either from cache (if required) or from TDF file and cache it for faster re-use:
 		if (preprocessingplan_fromcache):
@@ -469,10 +485,16 @@ def main(argv):
 			except Exception as e:
 				#print "Error(s) when reading from cache"
 				corrplan = extract_flatdark(f_in, flat_end, logfilename)
-				plan2cache(corrplan, infile, tmppath)
+				if (isscalar(corrplan['im_flat'])):
+					skipflat = True
+				else:
+					plan2cache(corrplan, infile, tmppath)		
 		else:			
 			corrplan = extract_flatdark(f_in, flat_end, logfilename)		
-			plan2cache(corrplan, infile, tmppath)	
+			if (isscalar(corrplan['im_flat'])):
+				skipflat = True
+			else:
+				plan2cache(corrplan, infile, tmppath)	
 
 		# Dowscale flat and dark images if necessary:
 		if isinstance(corrplan['im_flat'], ndarray):
@@ -487,7 +509,7 @@ def main(argv):
 	f_in.close()			
 
 	# Run computation:	
-	process( sino_idx, num_sinos, infile, outfile, preprocessing_required, corrplan, norm_sx, 
+	process( sino_idx, num_sinos, infile, outfile, preprocessing_required, corrplan, skipflat, norm_sx, 
 				norm_dx, flat_end, half_half, half_half_line, ext_fov, ext_fov_rot_right, ext_fov_overlap, ringrem, 
 				phaseretrieval_required, beta, delta, energy, distance, pixsize, phrtpad, approx_win, angles, 
 				angles_projfrom, angles_projto, offset, 
@@ -495,7 +517,7 @@ def main(argv):
 				downsc_factor, corr_offset, postprocess_required, convert_opt, crop_opt, nr_threads, logfilename )		
 
 	# Sample:
-	# 311 C:\Temp\BrunGeorgos.tdf C:\Temp\BrunGeorgos.raw 3.1416 -31.0 shepp-logan 1.0 False False True True True True 5 False False 100 0 0 False rivers:11;0 False 0.0 FBP_CUDA 1 1 False - - True 1.0 1000.0 22 150 2.2 True 16 True 2 C:\Temp\StupidFolder C:\Temp\log_00.txt
+	# 311 C:\Temp\BrunGeorgos.tdf C:\Temp\BrunGeorgos.raw 3.1416 -31.0 shepp-logan 1.0 False False True True True True 5 False False 100 0 0 False rivers:11;0 False 0.0 FBP_CUDA 1 1 False - - True 1.0 1000.0 22 150 2.2 True 16 0 1799 True 2 C:\Temp\StupidFolder C:\Temp\log_00.txt
 
 
 
