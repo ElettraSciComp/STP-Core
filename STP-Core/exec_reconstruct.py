@@ -734,41 +734,41 @@ def main(argv):
 	log.close()	
 
 	# Run several threads for independent computation without waiting for threads completion:
-	#for num in range(nr_threads):
-	#	start = ( (int_to - int_from + 1) / nr_threads)*num + int_from
-	#	if (num == nr_threads - 1):
-	#		end = int_to
-	#	else:
-	#		end = ( (int_to - int_from + 1) / nr_threads)*(num + 1) + int_from - 1
-	#	if (reconmethod == 'GRIDREC'):
-	#		Process(target=process_gridrec, args=(lock, start, end, num_sinos, infile, outpath, preprocessing_required, skipflat, 
-	#					corrplan, norm_sx, norm_dx, flat_end, half_half, half_half_line, ext_fov, ext_fov_rot_right, 
-	#					ext_fov_overlap, ringrem, 
-	#					angles, angles_projfrom, angles_projto, offset, logtrsf, param1, circle, scale, overpad, 
-	#					zerone_mode, dset_min, dset_max, decim_factor, downsc_factor, corr_offset, 
-	#					postprocess_required, convert_opt, crop_opt, outprefix, logfilename )).start()
-	#	else:
-	#		Process(target=process, args=(lock, start, end, num_sinos, infile, outpath, preprocessing_required, skipflat, 
-	#					corrplan, norm_sx, 
-	#					norm_dx, flat_end, half_half, half_half_line, ext_fov, ext_fov_rot_right, ext_fov_overlap, ringrem, 
-	#					angles, angles_projfrom, angles_projto, offset, logtrsf, param1, circle, scale, overpad, 
-	#					reconmethod, zerone_mode, dset_min, dset_max, decim_factor, downsc_factor, corr_offset, 
-	#					postprocess_required, convert_opt, crop_opt, outprefix, logfilename )).start()
-
-	start = int_from
-	end = int_to
-	if (reconmethod == 'GRIDREC'):
-		process_gridrec(lock, start, end, num_sinos, infile, outpath, preprocessing_required, skipflat, corrplan, norm_sx, 
-						norm_dx, flat_end, half_half, half_half_line, ext_fov, ext_fov_rot_right, ext_fov_overlap, ringrem, 
+	for num in range(nr_threads):
+		start = ( (int_to - int_from + 1) / nr_threads)*num + int_from
+		if (num == nr_threads - 1):
+			end = int_to
+		else:
+			end = ( (int_to - int_from + 1) / nr_threads)*(num + 1) + int_from - 1
+		if (reconmethod == 'GRIDREC'):
+			Process(target=process_gridrec, args=(lock, start, end, num_sinos, infile, outpath, preprocessing_required, skipflat, 
+						corrplan, norm_sx, norm_dx, flat_end, half_half, half_half_line, ext_fov, ext_fov_rot_right, 
+						ext_fov_overlap, ringrem, 
 						angles, angles_projfrom, angles_projto, offset, logtrsf, param1, circle, scale, overpad, 
 						zerone_mode, dset_min, dset_max, decim_factor, downsc_factor, corr_offset, 
-						postprocess_required, convert_opt, crop_opt, outprefix, logfilename)
-	else:
-		process(lock, start, end, num_sinos, infile, outpath, preprocessing_required, skipflat, corrplan, norm_sx, 
+						postprocess_required, convert_opt, crop_opt, outprefix, logfilename )).start()
+		else:
+			Process(target=process, args=(lock, start, end, num_sinos, infile, outpath, preprocessing_required, skipflat, 
+						corrplan, norm_sx, 
 						norm_dx, flat_end, half_half, half_half_line, ext_fov, ext_fov_rot_right, ext_fov_overlap, ringrem, 
 						angles, angles_projfrom, angles_projto, offset, logtrsf, param1, circle, scale, overpad, 
 						reconmethod, zerone_mode, dset_min, dset_max, decim_factor, downsc_factor, corr_offset, 
-						postprocess_required, convert_opt, crop_opt, outprefix, logfilename)
+						postprocess_required, convert_opt, crop_opt, outprefix, logfilename )).start()
+
+	#start = int_from
+	#end = int_to
+	#if (reconmethod == 'GRIDREC'):
+	#	process_gridrec(lock, start, end, num_sinos, infile, outpath, preprocessing_required, skipflat, corrplan, norm_sx, 
+	#					norm_dx, flat_end, half_half, half_half_line, ext_fov, ext_fov_rot_right, ext_fov_overlap, ringrem, 
+	#					angles, angles_projfrom, angles_projto, offset, logtrsf, param1, circle, scale, overpad, 
+	#					zerone_mode, dset_min, dset_max, decim_factor, downsc_factor, corr_offset, 
+	#					postprocess_required, convert_opt, crop_opt, outprefix, logfilename)
+	#else:
+	#	process(lock, start, end, num_sinos, infile, outpath, preprocessing_required, skipflat, corrplan, norm_sx, 
+	#					norm_dx, flat_end, half_half, half_half_line, ext_fov, ext_fov_rot_right, ext_fov_overlap, ringrem, 
+	#					angles, angles_projfrom, angles_projto, offset, logtrsf, param1, circle, scale, overpad, 
+	#					reconmethod, zerone_mode, dset_min, dset_max, decim_factor, downsc_factor, corr_offset, 
+	#					postprocess_required, convert_opt, crop_opt, outprefix, logfilename)
 
 	# Example:
 	# 255 255 C:\Temp\BrunGeorgos.tdf C:\Temp\BrunGeorgos 3.1416 -31.0 shepp-logan 1.0 False False True slice True True True 5 False False 100 0 0 False rivers:11;0 False 0.0 FBP_CUDA 1 1 False - - 0 1799 2 C:\Temp\log_00.txt
