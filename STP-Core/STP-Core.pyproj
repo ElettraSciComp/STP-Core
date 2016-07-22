@@ -5,7 +5,7 @@
     <SchemaVersion>2.0</SchemaVersion>
     <ProjectGuid>397494a0-035b-4ad0-996a-2799fb86dfcf</ProjectGuid>
     <ProjectHome>.</ProjectHome>
-    <StartupFile>exec_reconstruct.py</StartupFile>
+    <StartupFile>preview_preprocessing.py</StartupFile>
     <SearchPath>
     </SearchPath>
     <WorkingDirectory>.</WorkingDirectory>
@@ -17,7 +17,7 @@
     </InterpreterArguments>
     <EnableNativeCodeDebugging>False</EnableNativeCodeDebugging>
     <InterpreterPath>C:\Users\Franz\Documents\Visual Studio 2012\Projects\STP-Gui\STP-Gui\bin\x64\Release\python\python-2.7.10.amd64\python.exe</InterpreterPath>
-    <CommandLineArguments>255 255 C:\Temp\Asterisco_corr.tdf C:\Temp\Asterisco_nocorr 3.1416 -31.0 shepp-logan 1.0 False False True slice True True True 5 False False 100 0 0 False rivers:11;0 False 0.0 FBP_CUDA 1 1 False - - 0 1799 2 C:\Temp\log_00.txt</CommandLineArguments>
+    <CommandLineArguments>255 C:\Temp\S31to33_PuHA_3plus_50keV_11m_005.tdf C:\Temp\pippo 0 0 True False 900 False False 0 rivers:3;0 C:\Temp C:\Temp\log_00.txt</CommandLineArguments>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
     <DebugSymbols>true</DebugSymbols>

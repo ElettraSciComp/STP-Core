@@ -137,7 +137,7 @@ def main(argv):
 	except Exception as e:
 		#print "Error(s) when reading from cache"
 		corrplan = extract_flatdark(f_in, flat_end, logfilename)
-		if (isscalar(corrplan['im_flat'])):
+		if (isscalar(corrplan['im_flat']) and isscalar(corrplan['im_flat_after']) ):
 			skipflat = True
 		else:
 			plan2cache(corrplan, infile, tmppath)					
@@ -161,7 +161,7 @@ def main(argv):
 	outfile = outfile + '_' + str(im.shape[1]) + 'x' + str(im.shape[0]) + '_' + str( nanmin(im)) + '$' + str( nanmax(im) )	
 	im.tofile(outfile)
 
-	# 255 C:\Temp\Asterisco_corr.tdf C:\Temp\BrunGeorgos 11 11 True True 900 False False 0 rivers:11;0 1 C:\Temp\log_00.txt
+	# 255 C:\Temp\Pippo.tdf C:\Temp\pippo 0 0 True False 900 False False 0 rivers:3;0 C:\Temp C:\Temp\log_00.txt
 
 	
 if __name__ == "__main__":

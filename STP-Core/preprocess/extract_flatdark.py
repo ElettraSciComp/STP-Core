@@ -288,12 +288,12 @@ def extract_flatdark(f_in, flat_end, logfilename):
 				if not isinstance(im_dark_after, ndarray):
 					log = open(logfilename,"a")
 					if flat_onlyafter:
-						skip_flat = True
-						log.write(linesep + "\tNo dark field images (acquired after the projections) found. Flat fielding skipped. ")	
+						#skip_flat = True
+						log.write(linesep + "\tNo dark field images (acquired after the projections) found.")	
 					else:
 						log.write(linesep + "\tNo dark field images (acquired after the projections) found.")	
 					log.close()	
-					skip_flat_after = True	
+					#skip_flat_after = True	
 				else:
 					log = open(logfilename,"a")
 					log.write(linesep + "\tDark field images (acquired after the projections) found.")	
@@ -306,12 +306,12 @@ def extract_flatdark(f_in, flat_end, logfilename):
 				if not isinstance(im_dark_after, ndarray):
 					log = open(logfilename,"a")
 					if flat_onlyafter:
-						skip_flat = True
-						log.write(linesep + "\tNo dark field images (acquired after the projections) found. Flat fielding skipped. ")	
+						#skip_flat = True
+						log.write(linesep + "\tNo dark field images (acquired after the projections) found.")	
 					else:
 						log.write(linesep + "\tNo dark field images (acquired after the projections) found.")	
 					log.close()	
-					skip_flat_after = True	
+					#skip_flat_after = True	
 				else:
 					log = open(logfilename,"a")
 					log.write(linesep + "\tDark field images (acquired after the projections) found.")	
@@ -324,12 +324,12 @@ def extract_flatdark(f_in, flat_end, logfilename):
 				if not isinstance(im_dark_after, ndarray):
 					log = open(logfilename,"a")
 					if flat_onlyafter:
-						skip_flat = True
-						log.write(linesep + "\tNo dark field images (acquired after the projections) found. Flat fielding skipped. ")	
+						#skip_flat = True
+						log.write(linesep + "\tNo dark field images (acquired after the projections) found.")	
 					else:
 						log.write(linesep + "\tNo dark field images (acquired after the projections) found.")	
 					log.close()	
-					skip_flat_after = True	
+					#skip_flat_after = True	
 				else:
 					log = open(logfilename,"a")
 					log.write(linesep + "\tDark field images (acquired after the projections) found.")	
@@ -338,12 +338,12 @@ def extract_flatdark(f_in, flat_end, logfilename):
 			else:
 				log = open(logfilename,"a")
 				if flat_onlyafter:
-					skip_flat = True
-					log.write(linesep + "\tNo dark field images (acquired after the projections) found. Flat fielding skipped. ")	
+					#skip_flat = True
+					log.write(linesep + "\tNo dark field images (acquired after the projections) found.")	
 				else:
 					log.write(linesep + "\tNo dark field images (acquired after the projections) found.")	
 				log.close()	
-				skip_flat_after = True	
+				#skip_flat_after = True	
 					
 			if "/flat_post" in f_in:
 				
@@ -361,6 +361,11 @@ def extract_flatdark(f_in, flat_end, logfilename):
 				else:
 					log = open(logfilename,"a")
 					log.write(linesep + "\tFlat field images (acquired after the projections) found.")	
+					if not isinstance(im_dark_after, ndarray):
+						# Maybe we'are in the odd situation where darks where acquired before the acquisition and 
+						# flat after. We can cheat the process by assuming that darks "after" are equal to darks "before":
+						im_dark_after = im_dark
+						skip_flat_after = False	
 					log.close()
 						
 			elif "/flat_after" in f_in:
@@ -378,7 +383,12 @@ def extract_flatdark(f_in, flat_end, logfilename):
 					skip_flat_after = True
 				else:
 					log = open(logfilename,"a")
-					log.write(linesep + "\tFlat field images (acquired after the projections) found.")	
+					log.write(linesep + "\tFlat field images (acquired after the projections) found.")
+					if not isinstance(im_dark_after, ndarray):
+						# Maybe we'are in the odd situation where darks where acquired before the acquisition and 
+						# flat after. We can cheat the process by assuming that darks "after" are equal to darks "before":
+						im_dark_after = im_dark	
+						skip_flat_after = False	
 					log.close()
 						
 			elif "/exchange/data_white" in f_in:
@@ -397,6 +407,11 @@ def extract_flatdark(f_in, flat_end, logfilename):
 				else:
 					log = open(logfilename,"a")
 					log.write(linesep + "\tFlat field images (acquired after the projections) found.")	
+					if not isinstance(im_dark_after, ndarray):
+						# Maybe we'are in the odd situation where darks where acquired before the acquisition and 
+						# flat after. We can cheat the process by assuming that darks "after" are equal to darks "before":
+						im_dark_after = im_dark
+						skip_flat_after = False	
 					log.close()
 	
 			else:

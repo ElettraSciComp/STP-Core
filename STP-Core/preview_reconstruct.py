@@ -485,13 +485,13 @@ def main(argv):
 			except Exception as e:
 				#print "Error(s) when reading from cache"
 				corrplan = extract_flatdark(f_in, flat_end, logfilename)
-				if (isscalar(corrplan['im_flat'])):
+				if (isscalar(corrplan['im_flat']) and isscalar(corrplan['im_flat_after']) ):
 					skipflat = True
 				else:
 					plan2cache(corrplan, infile, tmppath)		
 		else:			
 			corrplan = extract_flatdark(f_in, flat_end, logfilename)		
-			if (isscalar(corrplan['im_flat'])):
+			if (isscalar(corrplan['im_flat']) and isscalar(corrplan['im_flat_after']) ):
 				skipflat = True
 			else:
 				plan2cache(corrplan, infile, tmppath)	
