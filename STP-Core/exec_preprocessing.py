@@ -216,7 +216,7 @@ def main(argv):
 
 	# Extract flat and darks:
 	plan = extract_flatdark(f_in, flat_end, logfilename)
-	if (isscalar(corrplan['im_flat']) and isscalar(corrplan['im_flat_after']) ):
+	if (isscalar(plan['im_flat']) and isscalar(plan['im_flat_after']) ):
 		skipflat = True
 	else:
 		skipflat = False
