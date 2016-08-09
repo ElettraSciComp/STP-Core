@@ -34,7 +34,8 @@ from multiprocessing import Process, Lock
 from pyfftw.interfaces.cache import enable as pyfftw_cache_enable, disable as pyfftw_cache_disable
 from pyfftw.interfaces.cache import set_keepalive_time as pyfftw_set_keepalive_time
 
-from phaseretrieval.phase_retrieval import phase_retrieval, prepare_plan
+from phaseretrieval.tiehom import tiehom, tiehom_plan
+from phaseretrieval.phrt   import phrt, phrt_plan
 
 from h5py import File as getHDF5
 import io.tdf as tdf
@@ -66,7 +67,7 @@ def _write_data(lock, im, index, outfile, outshape, outtype, logfilename, cputim
 		lock.release()
 
 
-def _process(lock, int_from, int_to, infile, outfile, outshape, outtype, plan, logfilename):
+def _process(lock, int_from, int_to, infile, outfile, outshape, outtype, method, plan, logfilename):
 
 	# Process the required subset of images:
 	for i in range(int_from, int_to + 1):                 
@@ -83,7 +84,10 @@ def _process(lock, int_from, int_to, infile, outfile, outshape, outtype, plan, l
 		t1 = time() 		
 
 		# Perform phase retrieval (first time also PyFFTW prepares a plan):		
-		im = phase_retrieval(im, plan).astype(float32)			
+		if (method == 0):
+			im = tiehom(im, plan).astype(float32)			
+		else:
+			im = phrt(im, plan, method).astype(float32)			
 		t2 = time() 		
 								
 		# Save processed image to HDF5 file (atomic procedure - lock used):
@@ -111,25 +115,31 @@ def main(argv):
 	outfile = argv[3]
 	
 	# Get the phase retrieval parameters:
-	beta = double(argv[4])   # param1( e.g. regParam, or beta)
-	delta = double(argv[5])   # param2( e.g. thresh or delta)
-	energy = double(argv[6])
-	distance = double(argv[7])    
-	pixsize = double(argv[8]) / 1000.0 # pixsixe from micron to mm:	
-	pad = True if argv[9] == "True" else False
+	method = int(argv[4])
+	param1 = double(argv[5])   # e.g. regParam, or beta
+	param2 = double(argv[6])   # e.g. thresh or delta
+	energy = double(argv[7])
+	distance = double(argv[8])    
+	pixsize = double(argv[9]) / 1000.0 # pixsixe from micron to mm:	
+	pad = True if argv[10] == "True" else False
 	
-	# Number of threads to use and logfile:
-	nr_threads = int(argv[10])
-	logfilename = argv[11]		
+	# Number of threads (actually processes) to use and logfile:
+	nr_threads = int(argv[11])
+	logfilename = argv[12]		
 
 	# Log infos:
 	log = open(logfilename,"w")
 	log.write(linesep + "\tInput TDF file: %s" % (infile))	
 	log.write(linesep + "\tOutput TDF file: %s" % (outfile))		
 	log.write(linesep + "\t--------------")
-	log.write(linesep + "\tMethod: TIE-Hom (Paganin)")	
-	log.write(linesep + "\t--------------")	
-	log.write(linesep + "\tDelta/Beta: %0.1f" % ((delta/beta))	)
+	if (method == 0):
+		log.write(linesep + "\tMethod: TIE-Hom (Paganin et al., 2002)")		
+		log.write(linesep + "\t--------------")	
+		log.write(linesep + "\tDelta/Beta: %0.1f" % ((param2/param1))	)
+	#else:
+	#	log.write(linesep + "\tMethod: Projected CTF (Moosmann et al., 2011)")		
+	#	log.write(linesep + "\t--------------")	
+	#	log.write(linesep + "\tDelta/Beta: %0.1f" % ((param2/param1))	)
 	log.write(linesep + "\tEnergy: %0.1f keV" % (energy))
 	log.write(linesep + "\tDistance: %0.1f mm" % (distance))
 	log.write(linesep + "\tPixel size: %0.3f micron" % (pixsize*1000))
@@ -187,7 +197,11 @@ def main(argv):
 	f_in.close()
 	f_out.close()
 				
-	plan = prepare_plan (im, beta, delta, energy, distance, pixsize, padding=pad)
+	if (method == 0):
+		# Paganin's:
+		plan = tiehom_plan (im, param1, param2, energy, distance, pixsize, pad)
+	else:
+		plan = phrt_plan (im, energy, distance, pixsize, param2, param1, method, pad)
 
 	# Run several threads for independent computation without waiting for threads completion:
 	for num in range(nr_threads):
@@ -196,13 +210,14 @@ def main(argv):
 			end = num_proj - 1
 		else:
 			end = (num_proj / nr_threads)*(num + 1) - 1
-		Process(target=_process, args=(lock, start, end, infile, outfile, outshape, im.dtype, plan, logfilename )).start()
+		Process(target=_process, args=(lock, start, end, infile, outfile, outshape, im.dtype, method, plan, logfilename)).start()
 
 	#start = 0
 	#end = num_proj - 1
-	#process(lock, start, end, infile, outfile, outshape, im.dtype, plan, logfilename)
+	#_process(lock, start, end, infile, outfile, outshape, im.dtype, method, plan, logfilename)
 
-	# 255 256 C:\Temp\BrunGeorgos_corr.tdf C:\Temp\BrunGeorgos_corr_phrt.tdf 1.0 2000.0 20.0 300.0 4.1 1 C:\Temp\log_00.txt
+	#255 256 C:\Temp\BrunGeorgos_corr.tdf C:\Temp\BrunGeorgos_corr_phrt.tdf 0 1.0 2000.0 22.0 300.0 2.2 False 1 C:\Temp\log_00.txt
+	#255 256 C:\Temp\BrunGeorgos_corr.tdf C:\Temp\BrunGeorgos_corr_phrt.tdf 4 2.5 1.0 22.0 300.0 2.2 False 1 C:\Temp\log_00.txt
 	
 if __name__ == "__main__":
 	main(argv[1:])

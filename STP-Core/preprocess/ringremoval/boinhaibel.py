@@ -58,11 +58,13 @@ def boinhaibel(im, args):
 
     n : int
         Size of the median filtering.
+
+	(Parameter n has to passed as a string ended by ;)
        
     Example (using tifffile.py)
     --------------------------
     >>> im = imread('sino_orig.tif')
-    >>> im = boinhaibel(im, 11)    
+    >>> im = boinhaibel(im, '11;')    
     >>> imsave('sino_flt.tif', im) 
 
     References
@@ -85,14 +87,5 @@ def boinhaibel(im, args):
     for i in range(0, im.shape[0]):
         im[i,] = im[i,] * (flt_col / col)
 
-    # Return image according to input type:
-    if (im.dtype == 'uint16'):
-        
-        # Check extrema for uint16 images:
-        im[im < iinfo(uint16).min] = iinfo(uint16).min
-        im[im > iinfo(uint16).max] = iinfo(uint16).max
-
-        # Return image:
-        return im.astype(uint16)
-    else:
-        return im
+    # Return image:
+    return im.astype(float32)

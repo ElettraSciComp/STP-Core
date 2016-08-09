@@ -34,7 +34,8 @@ from multiprocessing import Process, Lock
 from pyfftw.interfaces.cache import enable as pyfftw_cache_enable, disable as pyfftw_cache_disable
 from pyfftw.interfaces.cache import set_keepalive_time as pyfftw_set_keepalive_time
 
-from phaseretrieval.phase_retrieval import phase_retrieval, prepare_plan
+from phaseretrieval.tiehom import tiehom, tiehom_plan
+from phaseretrieval.phrt   import phrt, phrt_plan
 
 from h5py import File as getHDF5
 from utils.caching import cache2plan, plan2cache
@@ -62,17 +63,18 @@ def main(argv):
 	outfile = argv[2]
 	
 	# Get the phase retrieval parameters:
-	beta = double(argv[3])   # param1( e.g. regParam, or beta)
-	delta = double(argv[4])   # param2( e.g. thresh or delta)
-	energy = double(argv[5])
-	distance = double(argv[6])    
-	pixsize = double(argv[7]) / 1000.0 # pixsixe from micron to mm:	
-	pad = True if argv[8] == "True" else False
+	method = int(argv[3])
+	param1 = double(argv[4])   # param1( e.g. regParam, or beta)
+	param2 = double(argv[5])   # param2( e.g. thresh or delta)
+	energy = double(argv[6])
+	distance = double(argv[7])    
+	pixsize = double(argv[8]) / 1000.0 # pixsixe from micron to mm:	
+	pad = True if argv[9] == "True" else False
 	
 	# Tmp path and log file:
-	tmppath = argv[9]	
+	tmppath = argv[10]	
 	if not tmppath.endswith(sep): tmppath += sep		
-	logfilename = argv[10]		
+	logfilename = argv[11]		
 
 	
 	# Open the HDF5 file:
@@ -116,10 +118,13 @@ def main(argv):
 					
 	# Prepare plan:
 	im = im.astype(float32)
-	plan = prepare_plan (im, beta, delta, energy, distance, pixsize, padding=pad)
-
-	# Perform phase retrieval (first time also PyFFTW prepares a plan):		
-	im = phase_retrieval(im, plan)
+	if (method == 0):
+		# Paganin's:
+		plan = tiehom_plan (im, param1, param2, energy, distance, pixsize, pad)		
+		im = tiehom(im, plan).astype(float32)	
+	else:
+		plan = phrt_plan (im, energy, distance, pixsize, param2, param1, method, pad)
+		im = phrt(im, plan, method).astype(float32)				
 	
 	# Write down reconstructed preview file (file name modified with metadata):		
 	im = im.astype(float32)
@@ -128,4 +133,3 @@ def main(argv):
 	
 if __name__ == "__main__":
 	main(argv[1:])
-

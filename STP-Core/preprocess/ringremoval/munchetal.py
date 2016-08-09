@@ -48,11 +48,13 @@ def munchetal(im, args):
 
     sigma : float
         Smoothing effect.
+
+	(Parameters wlevel and sigma have to passed as a string separated by ;)
        
     Example (using tiffile.py)
     --------------------------
     >>> im = imread('sino_orig.tif')
-    >>> im = munchetal(im, 4, 1.0)    
+    >>> im = munchetal(im, '4;1.0')    
     >>> imsave('sino_flt.tif', im) 
 
     References
@@ -96,15 +98,5 @@ def munchetal(im, args):
     # Get wavelet reconstruction:
     im_f = real(waverec2(coeffsFlt, wname))
 
-    # Return image according to input type:
-    if (im.dtype == 'uint16'):
-        
-        # Check extrema for uint16 images:
-        im_f[im_f < iinfo(uint16).min] = iinfo(uint16).min
-        im_f[im_f > iinfo(uint16).max] = iinfo(uint16).max
-
-        # Return filtered image (an additional row and/or column might be
-        # present):
-        return im_f[0:im.shape[0],0:im.shape[1]].astype(uint16)
-    else:
-        return im_f[0:im.shape[0],0:im.shape[1]]
+    # Return filtered image (an additional row and/or column might be present):
+    return im_f[0:im.shape[0],0:im.shape[1]].astype(float32)

@@ -5,7 +5,7 @@
     <SchemaVersion>2.0</SchemaVersion>
     <ProjectGuid>397494a0-035b-4ad0-996a-2799fb86dfcf</ProjectGuid>
     <ProjectHome>.</ProjectHome>
-    <StartupFile>preview_preprocessing.py</StartupFile>
+    <StartupFile>preview_reconstruct.py</StartupFile>
     <SearchPath>
     </SearchPath>
     <WorkingDirectory>.</WorkingDirectory>
@@ -17,7 +17,7 @@
     </InterpreterArguments>
     <EnableNativeCodeDebugging>False</EnableNativeCodeDebugging>
     <InterpreterPath>C:\Users\Franz\Documents\Visual Studio 2012\Projects\STP-Gui\STP-Gui\bin\x64\Release\python\python-2.7.10.amd64\python.exe</InterpreterPath>
-    <CommandLineArguments>255 C:\Temp\S31to33_PuHA_3plus_50keV_11m_005.tdf C:\Temp\pippo 0 0 True False 900 False False 0 rivers:3;0 C:\Temp C:\Temp\log_00.txt</CommandLineArguments>
+    <CommandLineArguments>200 C:\Temp\test_1_ter.tdf C:\Temp\test_1_ter.raw 3.1416 0.0 shepp-logan 1.0 False False True True True True 900 True False 18 0 0 False raven:2;0.9 False 0.0 FBP_CUDA 2 2 False - - True 5 0.08 2.5 50 11000 3.05 True 16 0 1799 True 2 C:\Temp\StupidFolder C:\Temp\log_00.txt</CommandLineArguments>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
     <DebugSymbols>true</DebugSymbols>
@@ -52,7 +52,10 @@
     <Compile Include="io\EdfFile.py" />
     <Compile Include="io\tdf.py" />
     <Compile Include="io\__init__.py" />
-    <Compile Include="phaseretrieval\phase_retrieval.py" />
+    <Compile Include="phaseretrieval\phrt.py">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="phaseretrieval\tiehom.py" />
     <Compile Include="phaseretrieval\__init__.py" />
     <Compile Include="postprocess\postprocess.py" />
     <Compile Include="postprocess\__init__.py" />

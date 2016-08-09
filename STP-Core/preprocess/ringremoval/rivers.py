@@ -25,7 +25,7 @@
 # Last modified: July, 8th 2016
 #
 
-from numpy import uint16, float32, iinfo, finfo, copy, zeros, median
+from numpy import uint16, float32, iinfo, finfo, copy, zeros, median, float32
 
 
 def _medfilt (x, k):
@@ -58,11 +58,13 @@ def rivers(im, args):
 
     n : int
         Size of the median filtering.
+
+	(Parameter n has to passed as a string ended by ;)
        
     Example (using tiffile.py)
     --------------------------
     >>> im = imread('original.tif')
-    >>> im = rivers(im, 13)    
+    >>> im = rivers(im, '13;')    
     >>> imsave('filtered.tif', im) 
 
     References
@@ -84,14 +86,5 @@ def rivers(im, args):
     for i in range(0, im.shape[0]):
         im[i,] = im[i,] - (col - flt_col)
 
-    # Return image according to input type:
-    if (im.dtype == 'uint16'):
-        
-        # Check extrema for uint16 images:
-        im[im < iinfo(uint16).min] = iinfo(uint16).min
-        im[im > iinfo(uint16).max] = iinfo(uint16).max
-
-        # Return image:
-        return im.astype(uint16)
-    else:
-        return im
+    # Return image:
+    return im.astype(float32)

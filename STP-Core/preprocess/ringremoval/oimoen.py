@@ -62,11 +62,13 @@ def oimoen(im, args):
 
     n2 : int
         Size of the vertical filtering.
+
+	(Parameters n1 and n2 have to passed as a string separated by ;)
        
     Example (using tifffile.py)
     --------------------------
     >>> im = imread('sino_orig.tif')
-    >>> im = oimoen(im, 51, 51)    
+    >>> im = oimoen(im, '51;51')    
     >>> imsave('sino_flt.tif', im) 
 
     References
@@ -108,15 +110,4 @@ def oimoen(im, args):
     im = im[(n2 + n1):im.shape[0] - (n1 + n2), (n1 + n2):im.shape[1] - (n1 + n2)]	
 
     # Return image according to input type:
-    if (im.dtype == 'uint16'):
-
-        # Check extrema for uint16 images:
-        im[im < iinfo(uint16).min] = iinfo(uint16).min
-        im[im > iinfo(uint16).max] = iinfo(uint16).max
-
-        # Return image:
-        return im.astype(uint16)
-
-    else:
-
-        return im
+    return im.astype(float32)

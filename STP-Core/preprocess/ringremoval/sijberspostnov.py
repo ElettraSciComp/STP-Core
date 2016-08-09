@@ -25,7 +25,9 @@
 # Last modified: July, 8th 2016
 #
 
-from numpy import zeros, mean, median, var, copy, vstack
+# TODO: Use the C version for performance reasons.
+
+from numpy import zeros, mean, median, var, copy, vstack, float32
 
 def sijberspostnov(im, args):
     """Process a sinogram image with the Sijbers and Postnov de-striping algorithm.
@@ -112,14 +114,5 @@ def sijberspostnov(im, args):
     for i in range(0, im.shape[0]):
         im[i,:] = im[i,:] - glob_art
 
-     # Return image according to input type:
-    if (im.dtype == 'uint16'):
-        
-        # Check extrema for uint16 images:
-        im[im < iinfo(uint16).min] = iinfo(uint16).min
-        im[im > iinfo(uint16).max] = iinfo(uint16).max
-
-        # Return image:
-        return im.astype(uint16)
-    else:
-        return im
+     # Return image:
+    return im.astype(float32)
