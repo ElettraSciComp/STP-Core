@@ -209,11 +209,11 @@ def flat_fielding (im, i, plan, flat_end, half_half, half_half_line, norm_sx, no
 			size_ct = 3
 			while ( ( float(amin(im)) <  finfo(float32).eps) and (size_ct <= 7) ):			
 				im_f = median_filter(im, size_ct)
-				im [im <  finfo(float32).eps] = im_f [im <  finfo(float32).eps]								
+				im [im < finfo(float32).eps] = im_f [im < finfo(float32).eps]								
 				size_ct += 2
 				
 			if (float(amin(im)) <  finfo(float32).eps):				
-				im [im <  finfo(float32).eps] = finfo(float32).eps	
+				im [im < finfo(float32).eps] = finfo(float32).eps	
 
 	finally:
 

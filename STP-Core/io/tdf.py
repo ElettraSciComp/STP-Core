@@ -39,7 +39,7 @@ import xml.etree.ElementTree as et
 
 DATA_ORDER = 1 # 0 for faster read/write projections, 1 for faster read/write sinograms, everything else for the other direction
 
-def parse_metadata(f, xml_command):
+def parse_metadata( f, xml_command ):
 	"""Fill the specified HDF5 file with metadata according to the DataExchange initiative.
 	The metadata in input are described in a XML format.
 
@@ -153,7 +153,6 @@ def parse_metadata(f, xml_command):
 		dset = slits_vacuum.create_dataset('y2', data = float(val[0]), dtype = 'f')
 		dset.attrs['units'] = val[1]
 		
-
 def read_tomo( dataset, index ):
 	"""Extract the tomographic projection at the specified relative index from the HDF5 dataset.
 

@@ -174,7 +174,7 @@ def _processHIS( HISfilename, dset, dset_offset, provenance_dset, provenance_off
 			block = infile.read(chunksize)						
 			
 			# Convert as numpy array:
-			data = numpy.fromstring(block, bytecode)
+			data  = numpy.fromstring(block, bytecode)
 			im    = numpy.reshape( data, [dim2, dim1])			
 			im    = im[crop_top:im.shape[0]-crop_bottom,crop_left:im.shape[1]-crop_right]	
 									

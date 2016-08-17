@@ -31,8 +31,6 @@ from numpy import exp, real, copy, zeros, ones, pad, ComplexWarning
 from pyfftw import n_byte_align, simd_alignment
 from pyfftw.interfaces.numpy_fft import fft2, ifft2
 
-from tifffile import imsave
-
 from warnings import simplefilter
 
 def raven(im, args):

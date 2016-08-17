@@ -22,7 +22,7 @@
 
 #
 # Author: Francesco Brun
-# Last modified: July, 8th 2016
+# Last modified: August, 8th 2016
 #
 
 from sys import argv, exit
