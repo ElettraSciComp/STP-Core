@@ -25,11 +25,14 @@
 # Last modified: August, 16th 2016
 #
 # Code based on the original MATLAB implementation of Vincent Van Nieuwenhove,
-# iMinds-vision lab, University of Antwerp.
+# iMinds-vision lab, University of Antwerp. However, the flat fielding is
+# performed in the sinogram domain rather than the originally proposed
+# projection domain.
 #
 
 from numpy import int_, float32, finfo, gradient, sqrt, ndarray, real, dot, sort
-from numpy import std, zeros, tile, cov, diag, mean, sum, ComplexWarning, amin, amax
+from numpy import std, zeros, cov, diag, mean, sum, ComplexWarning, amin, amax
+from numpy import concatenate, tile, median
 
 from numpy.random import randn
 from numpy.linalg import eig
@@ -76,6 +79,7 @@ def _parallelAnalysis(ff, n):
 		kpTrk[:,i] = sort(D).astype(float32)
 
 	mean_ff_EFF = mean(ff,axis=1)
+	
 	F = ff - tile(mean_ff_EFF, (ff.shape[1], 1)).T
 	D, V = eig(cov(F, rowvar=False))
 
@@ -91,36 +95,36 @@ def _parallelAnalysis(ff, n):
 	return (V, numPC)
 
 
-def _condTVmean(proj, meanFF, FF, DS):
+def _condTVmean(sino, idx, meanFF, FF, DS):
 	
 	""" Find the optimal estimates of the coefficients of the eigen flat fields.
 	
 	"""
-
 	# Downsample images (without interpolation):
-	proj = proj[::DS, ::DS]       
-	meanFF = meanFF[::DS, ::DS]     
-	FF2 = zeros((meanFF.shape[0], meanFF.shape[1], FF.shape[2]), dtype=float32)
-	for i in range(0, FF.shape[2]):
-		FF2[:,:,i] = FF[::DS, ::DS,i]
+	sino = sino[::DS, ::DS]       
+	meanFF_sino = tile(meanFF[idx,::DS], (sino.shape[0],1)) 	
+	FF2 = zeros((meanFF_sino.shape[0], meanFF_sino.shape[1], FF.shape[2]), dtype=float32)
+	for i in range(0, FF.shape[2]):		
+		FF2[:,:,i] = tile(FF[idx,::DS,i], (sino.shape[0],1)) 
 
 	# Optimize coefficients:
-	xopt = fmin(func=_f, x0=zeros(FF.shape[2], dtype=float32), args=(proj, meanFF, FF2), disp=False)	
+	xopt = fmin(func=_f, x0=zeros(FF.shape[2], dtype=float32), args=(sino, idx/DS, meanFF_sino, FF2), disp=False)
 	
 	return xopt.astype(float32)
 
 
-def _f(x, proj, meanFF, FF):
+def _f(x, sino, idx, meanFF_sino, FF):
 	""" Objective function to be minimized.
 	
 	"""
-	FF_eff = zeros((FF.shape[0], FF.shape[1]), dtype=float32)
-	
+	FF_eff = zeros((FF.shape[0], FF.shape[1]), dtype=float32)	
+
 	for i in range(0, FF.shape[2]):		
 		FF_eff = FF_eff + x[i]*FF[:,:,i]
 	
-	corProj = proj / (meanFF + FF_eff) * mean(meanFF + FF_eff)
-	[Gx,Gy] = gradient(corProj) 
+	FF_eff_sino = tile(FF_eff[idx,:], (FF_eff.shape[0],1)) 	
+	corSino = sino / (meanFF_sino + FF_eff_sino + finfo(float32).eps) * mean(meanFF_sino + FF_eff_sino)
+	[Gx,Gy] = gradient(corSino) 
 	mag  = sqrt(Gx ** 2 + Gy ** 2)
 	cost = sum(mag)
 
@@ -131,12 +135,13 @@ def dff_prepare_plan(white_dset, repetitions, dark):
 	""" Prepare the Eigen Flat Fields (EFFs) and the filtered EFFs to
 	be used for dynamic flat fielding.
 
-	(Function to be called once before the actual filtering of each projection).
+	(Function to be called once before the actual filtering of each sinogram).
 	
 	Parameters
 	----------
 	white_dset : array_like
-		3D matrix where each flat field image is stacked along the 3rd dimension.
+		3D matrix where each flat field image is stacked along the 3rd dimension. 
+		The data_white dataset of a HDF5 file in DataExchange format can be passed.
 
 	repetitions: int
 		Number of iterations to consider during parallel analysis.
@@ -208,19 +213,23 @@ def dff_prepare_plan(white_dset, repetitions, dark):
 	for i in range(1, 1 + nrEFF):		
 		filtEFF[:,:,i] = median_filter(EFF[:,:,i], 3)
 
-	return (EFF, filtEFF)
+	return EFF, filtEFF
 
 
-def dynamic_flat_fielding(im, EFF, filtEFF, downsample, dark):
+def dynamic_flat_fielding(im, idx, EFF, filtEFF, downsample, dark, norm_sx=0, norm_dx=0):
 
-	""" Apply dynamic flat fielding to input projection image.
+	""" Apply dynamic flat fielding to input sinogram image.
 
-	(Function to be called for each projection).
+	(Function to be called for each sinogram).
 	
 	Parameters
 	----------
 	im : array_like
-		The (dark-corrected) projection image to process.
+		The (dark-corrected) sinogram image to process.
+
+	idx : int
+		(Zero-order) relative index of the sinogram within the dataset. It is required
+		to understand the line of the flat images (projection-order) to consider.
 		
 	EFF : array_like
 		Stack of eigen flat fields as return from the dff_prepare_plan function.
@@ -237,10 +246,18 @@ def dynamic_flat_fielding(im, EFF, filtEFF, downsample, dark):
 		correction is not required (e.g. due to a photon counting detector) a matrix
 		of the proper shape with zeros has to be passed.
 
+	norm_sx : int
+		Width in pixel of the left window (i.e. starting from the 0-th column of the
+		sinogram) to consider as a reference for normalization.
+
+	norm_dx : int
+		Width in pixel of the right window (i.e. starting from the last column of the
+		sinogram in reverse order) to consider as a reference for normalization.
+
 	Return value
 	------------
 	im : array_like
-		Filtered projection.
+		Filtered sinogram.
 
 	References
 	----------
@@ -249,37 +266,75 @@ def dynamic_flat_fielding(im, EFF, filtEFF, downsample, dark):
 	in X-ray imaging", Optics Express, 23(11), 27975-27989, 2015.
 
 	"""				
-	# Dark correct the input image:
-	im = im.astype(float32) - dark.astype(float32)
+	# Create dark image:
+	im_dark = tile(dark[idx,:], (im.shape[0],1)) 				
+
+	# Dark correct the input sinogram image:
+	im = im.astype(float32) - im_dark.astype(float32)
 		
-	# Estimate weights for a single projection:
-	x = _condTVmean(im, EFF[:,:,0], filtEFF[:,:,1:], downsample)
+	# Estimate weights for a single sinogram:
+	x = _condTVmean(im, idx, EFF[:,:,0], filtEFF[:,:,1:], downsample)
 
 	# Dynamic flat field correction:
-	FFeff = zeros(im.shape, dtype=float32)
-	for j in range(0, EFF.shape[2] - 1):
+	FFeff = zeros((filtEFF.shape[0], filtEFF.shape[1]), dtype=float32)
+	for j in range(0, EFF.shape[2] - 1):		
 		FFeff = FFeff + x[j] * filtEFF[:,:,j + 1]
-
+	
 	# Conventional flat fielding (to get mean value):
-	tmp = im / EFF[:,:,0]
+	im_flat = tile(EFF[idx,:,0], (im.shape[0],1))
+	tmp = im / (im_flat + finfo(float32).eps)
+
+	# Quick and dirty compensation for detector afterglow:
+	size_ct = 3
+	while ( ( float(amin(tmp)) <  finfo(float32).eps) and (size_ct <= 7) ):			
+		im_f = median_filter(tmp, size_ct)
+		tmp [tmp < finfo(float32).eps] = im_f [tmp < finfo(float32).eps]								
+		size_ct += 2
+				
+	if (float(amin(tmp)) <  finfo(float32).eps):	
+		rplc_value = sum(tmp [tmp > finfo(float32).eps]) / sum(tmp > finfo(float32).eps)		
+		tmp [tmp < finfo(float32).eps] = rplc_value
+
+	# Get the mean value of conventional flat fielded image:
 	mean_val = mean(tmp)
 
 	# Dynamic flat fielding:
-	im = im / (EFF[:,:,0] + FFeff)
+	im_FF_eff = tile(FFeff[idx,:], (im.shape[0],1))
+	im = im / (im_flat + im_FF_eff + finfo(float32).eps)
 
-	# Re-normalization of the mean with respect to conventional flat fielding:
-	im = im / mean(im) * mean_val
-			
 	# Quick and dirty compensation for detector afterglow:
 	size_ct = 3
-	while ((float(amin(im)) < finfo(float32).eps) and (size_ct <= 7)):			
-		im_f = median_filter(im, size_ct)
-		im[im < finfo(float32).eps] = im_f[im < finfo(float32).eps]								
+	while ( ( float(amin(tmp)) <  finfo(float32).eps) and (size_ct <= 7) ):			
+		im_f = median_filter(tmp, size_ct)
+		tmp [tmp < finfo(float32).eps] = im_f [tmp < finfo(float32).eps]								
 		size_ct += 2
 				
-	if (float(amin(im)) < finfo(float32).eps):				
-		im[im < finfo(float32).eps] = finfo(float32).eps	
+	if (float(amin(tmp)) <  finfo(float32).eps):	
+		rplc_value = sum(tmp [tmp > finfo(float32).eps]) / sum(tmp > finfo(float32).eps)		
+		tmp [tmp < finfo(float32).eps] = rplc_value
 
+	# Re-normalization of the mean with respect to conventional flat fielding:
+	im = im / (mean(im) + finfo(float32).eps) * mean_val
+
+	# Perform air normalization (if required):
+	if ((norm_sx == 0) and (norm_dx == 0)):
+		norm_coeff = 1.0								
+	else:					
+		# Get the air image:
+		if (norm_dx == 0):
+			im_air = im[:,0:norm_sx]							
+		else:
+			im_sx = im[:,0:norm_sx]							
+			im_dx = im[:,-norm_dx:]
+			im_air = concatenate((im_sx,im_dx), axis=1)	
+
+		# Set a norm coefficient for avoiding for cycle:
+		norm_coeff = median(im_air, axis=1)
+		norm_coeff = tile(norm_coeff, (im.shape[1],1)) 
+		norm_coeff = norm_coeff.T
+	
+	im = (im / (norm_coeff + finfo(float32).eps)).astype(float32)
+			
 	# Return pre-processed image:
 	return im
 

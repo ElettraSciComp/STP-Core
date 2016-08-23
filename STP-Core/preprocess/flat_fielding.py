@@ -212,8 +212,9 @@ def flat_fielding (im, i, plan, flat_end, half_half, half_half_line, norm_sx, no
 				im [im < finfo(float32).eps] = im_f [im < finfo(float32).eps]								
 				size_ct += 2
 				
-			if (float(amin(im)) <  finfo(float32).eps):				
-				im [im < finfo(float32).eps] = finfo(float32).eps	
+			if (float(amin(im)) <  finfo(float32).eps):			
+				rplc_value = sum(im [im > finfo(float32).eps]) / sum(im > finfo(float32).eps)		
+				im [im < finfo(float32).eps] = rplc_value
 
 	finally:
 

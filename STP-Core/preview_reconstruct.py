@@ -37,8 +37,9 @@ from multiprocessing import Process, Array
 # pystp-specific:
 from preprocess.extfov_correction import extfov_correction
 from preprocess.flat_fielding import flat_fielding
+from preprocess.dynamic_flatfielding import dff_prepare_plan, dynamic_flat_fielding
 from preprocess.ring_correction import ring_correction
-from preprocess.extract_flatdark import extract_flatdark
+from preprocess.extract_flatdark import extract_flatdark, _medianize
 
 from phaseretrieval.tiehom import tiehom, tiehom_plan
 from phaseretrieval.phrt   import phrt, phrt_plan
@@ -220,15 +221,19 @@ def process(sino_idx, num_sinos, infile, outfile, preprocessing_required, corr_p
 
 		# Perform the pre-processing of the first sinogram to get the right dimension:
 		if (preprocessing_required):
+			if not skipflat:			
+				if dynamic_ff:
+					# Dynamic flat fielding with downsampling = 2:
+					test_im = dynamic_flat_fielding(test_im, zrange[0]/downsc_factor, EFF, filtEFF, 2, im_dark, norm_sx, norm_dx)
+				else:
+					test_im = flat_fielding(test_im, zrange[0]/downsc_factor, corr_plan, flat_end, half_half, 
+											half_half_line/decim_factor, norm_sx, norm_dx).astype(float32)
+			test_im = extfov_correction(test_im, ext_fov, ext_fov_rot_right, ext_fov_overlap/downsc_factor).astype(float32)			
 			if not skipflat:
-				test_im = flat_fielding (test_im, zrange[0]/downsc_factor, corr_plan, flat_end, half_half, 
-										half_half_line/decim_factor, norm_sx, norm_dx).astype(float32)	
-			test_im = extfov_correction (test_im, ext_fov, ext_fov_rot_right, ext_fov_overlap/downsc_factor).astype(float32)			
-			if not skipflat:
-				test_im = ring_correction (test_im, ringrem, flat_end, corr_plan['skip_flat_after'], half_half, 
+				test_im = ring_correction(test_im, ringrem, flat_end, corr_plan['skip_flat_after'], half_half, 
 											half_half_line/decim_factor, ext_fov).astype(float32)	
 			else:
-				test_im = ring_correction (test_im, ringrem, False, False, half_half, 
+				test_im = ring_correction(test_im, ringrem, False, False, half_half, 
 											half_half_line/decim_factor, ext_fov).astype(float32)	
 		
 		# Now we can allocate memory for the bunch of slices:		
@@ -250,7 +255,11 @@ def process(sino_idx, num_sinos, infile, outfile, preprocessing_required, corr_p
 			# Perform the pre-processing for each sinogram of the bunch:
 			if (preprocessing_required):
 				if not skipflat:
-					test_im = flat_fielding (test_im, zrange[ct]/downsc_factor, corr_plan, flat_end, half_half, 
+					if dynamic_ff:
+						# Dynamic flat fielding with downsampling = 2:
+						test_im = dynamic_flat_fielding(test_im, zrange[ct]/downsc_factor, EFF, filtEFF, 2, im_dark, norm_sx, norm_dx)
+					else:
+						test_im = flat_fielding (test_im, zrange[ct]/downsc_factor, corr_plan, flat_end, half_half, 
 											half_half_line/decim_factor, norm_sx, norm_dx).astype(float32)	
 				test_im = extfov_correction (test_im, ext_fov, ext_fov_rot_right, ext_fov_overlap/downsc_factor).astype(float32)
 				if not skipflat:
@@ -311,7 +320,11 @@ def process(sino_idx, num_sinos, infile, outfile, preprocessing_required, corr_p
 		# Perform the preprocessing of the sinogram (if required):
 		if (preprocessing_required):
 			if not skipflat:
-				im = flat_fielding (im, sino_idx, corr_plan, flat_end, half_half, half_half_line/decim_factor, 
+				if dynamic_ff:
+					# Dynamic flat fielding with downsampling = 2:
+					im = dynamic_flat_fielding(im, sino_idx, EFF, filtEFF, 2, im_dark, norm_sx, norm_dx)
+				else:
+					im = flat_fielding (im, sino_idx, corr_plan, flat_end, half_half, half_half_line/decim_factor, 
 								norm_sx, norm_dx).astype(float32)		
 			im = extfov_correction (im, ext_fov, ext_fov_rot_right, ext_fov_overlap)
 			if not skipflat:
@@ -482,35 +495,65 @@ def main(argv):
 	# Get correction plan and phase retrieval plan (if required):
 	corrplan = 0	
 	skipflat = False
-	if (preprocessing_required):		
-		# Load flat fielding plan either from cache (if required) or from TDF file and cache it for faster re-use:
-		if (preprocessingplan_fromcache):
-			try:
-				corrplan = cache2plan(infile, tmppath)
-			except Exception as e:
-				#print "Error(s) when reading from cache"
-				corrplan = extract_flatdark(f_in, flat_end, logfilename)
+	if (preprocessing_required):
+		if not dynamic_ff:
+			# Load flat fielding plan either from cache (if required) or from TDF file and cache it for faster re-use:
+			if (preprocessingplan_fromcache):
+				try:
+					corrplan = cache2plan(infile, tmppath)
+				except Exception as e:
+					#print "Error(s) when reading from cache"
+					corrplan = extract_flatdark(f_in, flat_end, logfilename)
+					if (isscalar(corrplan['im_flat']) and isscalar(corrplan['im_flat_after']) ):
+						skipflat = True
+					else:
+						plan2cache(corrplan, infile, tmppath)		
+			else:			
+				corrplan = extract_flatdark(f_in, flat_end, logfilename)		
 				if (isscalar(corrplan['im_flat']) and isscalar(corrplan['im_flat_after']) ):
 					skipflat = True
 				else:
-					plan2cache(corrplan, infile, tmppath)		
-		else:			
-			corrplan = extract_flatdark(f_in, flat_end, logfilename)		
-			if (isscalar(corrplan['im_flat']) and isscalar(corrplan['im_flat_after']) ):
-				skipflat = True
-			else:
-				plan2cache(corrplan, infile, tmppath)	
+					plan2cache(corrplan, infile, tmppath)	
 
-		# Dowscale flat and dark images if necessary:
-		if isinstance(corrplan['im_flat'], ndarray):
-			corrplan['im_flat'] = corrplan['im_flat'][::downsc_factor,::downsc_factor]		
-		if isinstance(corrplan['im_dark'], ndarray):
-			corrplan['im_dark'] = corrplan['im_dark'][::downsc_factor,::downsc_factor]	
-		if isinstance(corrplan['im_flat_after'], ndarray):
-			corrplan['im_flat_after'] = corrplan['im_flat_after'][::downsc_factor,::downsc_factor]	
-		if isinstance(corrplan['im_dark_after'], ndarray):
-			corrplan['im_dark_after'] = corrplan['im_dark_after'][::downsc_factor,::downsc_factor]			
+			# Dowscale flat and dark images if necessary:
+			if isinstance(corrplan['im_flat'], ndarray):
+				corrplan['im_flat'] = corrplan['im_flat'][::downsc_factor,::downsc_factor]		
+			if isinstance(corrplan['im_dark'], ndarray):
+				corrplan['im_dark'] = corrplan['im_dark'][::downsc_factor,::downsc_factor]	
+			if isinstance(corrplan['im_flat_after'], ndarray):
+				corrplan['im_flat_after'] = corrplan['im_flat_after'][::downsc_factor,::downsc_factor]	
+			if isinstance(corrplan['im_dark_after'], ndarray):
+				corrplan['im_dark_after'] = corrplan['im_dark_after'][::downsc_factor,::downsc_factor]			
 
+		else:
+			# Dynamic flat fielding:
+			if "/tomo" in f_in:				
+				if "/flat" in f_in:
+					flat_dset = f_in['flat']
+					if "/dark" in f_in:
+						im_dark = _medianize(f_in['dark'])
+					else:										
+						skipdark = True
+				else:
+					skipflat = True # Nothing to do in this case			
+			else: 
+				if "/exchange/data_white" in f_in:
+					flat_dset = f_in['/exchange/data_white']
+					if "/exchange/data_dark" in f_in:
+						im_dark = _medianize(f_in['/exchange/data_dark'])	
+					else:					
+						skipdark = True
+				else:
+					skipflat = True # Nothing to do in this case
+	
+			# Prepare plan for dynamic flat fielding with 16 repetitions:		
+			EFF, filtEFF = dff_prepare_plan(flat_dset, 16, im_dark)
+
+			# Downscale images if necessary:
+			im_dark = im_dark[::downsc_factor,::downsc_factor]
+			EFF = EFF[::downsc_factor,::downsc_factor,:]	
+			filtEFF = filtEFF[::downsc_factor,::downsc_factor,:]	
+			
 	f_in.close()			
 
 	# Run computation:	

@@ -34,8 +34,9 @@ from multiprocessing import Process, Lock
 
 from preprocess.extfov_correction import extfov_correction
 from preprocess.flat_fielding import flat_fielding
+from preprocess.dynamic_flatfielding import dff_prepare_plan, dynamic_flat_fielding
 from preprocess.ring_correction import ring_correction
-from preprocess.extract_flatdark import extract_flatdark
+from preprocess.extract_flatdark import extract_flatdark, _medianize
 
 from h5py import File as getHDF5
 import io.tdf as tdf
@@ -67,7 +68,8 @@ def _write_data(lock, im, index, outfile, outshape, outtype, logfilename, cputim
 		lock.release()	
 
 def _process (lock, int_from, int_to, infile, outfile, outshape, outtype, skipflat, plan, norm_sx, norm_dx, flat_end, 
-			 half_half, half_half_line, ext_fov, ext_fov_rot_right, ext_fov_overlap, ringrem, logfilename):
+			 half_half, half_half_line, ext_fov, ext_fov_rot_right, ext_fov_overlap, ringrem, dynamic_ff, EFF, 
+			 filtEFF, im_dark, logfilename):
 
 	# Process the required subset of images:
 	for i in range(int_from, int_to + 1):                 
@@ -85,9 +87,13 @@ def _process (lock, int_from, int_to, infile, outfile, outshape, outtype, skipfl
 
 		# Perform pre-processing (flat fielding, extended FOV, ring removal):	
 		if not skipflat:
-			im = flat_fielding(im, i, plan, flat_end, half_half, half_half_line, norm_sx, norm_dx)			
+			if dynamic_ff:
+				# Dynamic flat fielding with downsampling = 2:
+				im = dynamic_flat_fielding(im, i, EFF, filtEFF, 2, im_dark, norm_sx, norm_dx)
+			else:
+				im = flat_fielding(im, i, plan, flat_end, half_half, half_half_line, norm_sx, norm_dx)			
 		im = extfov_correction(im, ext_fov, ext_fov_rot_right, ext_fov_overlap)
-		if not skipflat:
+		if not skipflat and not dynamic_ff:
 			im = ring_correction (im, ringrem, flat_end, plan['skip_flat_after'], half_half, half_half_line, ext_fov)
 		else:
 			im = ring_correction (im, ringrem, False, False, half_half, half_half_line, ext_fov)
@@ -118,11 +124,6 @@ def main(argv):
 
 	"""
 	lock = Lock()
-
-	skip_ringrem = False
-	skip_flat = False
-	skip_flat_after = True
-	first_done = False	
 
 	# Get the from and to number of files to process:
 	int_from = int(argv[0])
@@ -156,10 +157,13 @@ def main(argv):
 		
 	# Method and parameters coded into a string:
 	ringrem = argv[12]	
+
+	# Flat fielding method (conventional or dynamic):
+	dynamic_ff = True if argv[13] == "True" else False
 	
 	# Nr of threads and log file:
-	nr_threads = int(argv[13])
-	logfilename = argv[14]		
+	nr_threads = int(argv[14])
+	logfilename = argv[15]		
 
 
 
@@ -215,27 +219,54 @@ def main(argv):
 	log.close()
 
 	# Extract flat and darks:
-	plan = extract_flatdark(f_in, flat_end, logfilename)
-	if (isscalar(plan['im_flat']) and isscalar(plan['im_flat_after']) ):
-		skipflat = True
+	skipflat = False
+	skipdark = False
+
+	# Following variables make sense only for dynamic flat fielding:
+	EFF = -1
+	filtEFF = -1
+	im_dark = -1
+	
+	# Following variable makes sense only for conventional flat fielding:
+	plan = -1
+
+	if not dynamic_ff:
+		plan = extract_flatdark(f_in, flat_end, logfilename)
+		if (isscalar(plan['im_flat']) and isscalar(plan['im_flat_after']) ):
+			skipflat = True
+		else:
+			skipflat = False		
 	else:
-		skipflat = False
+		# Dynamic flat fielding:
+		if "/tomo" in f_in:				
+			if "/flat" in f_in:
+				flat_dset = f_in['flat']
+				if "/dark" in f_in:
+					im_dark = _medianize(f_in['dark'])
+				else:										
+					skipdark = True
+			else:
+				skipflat = True # Nothing to do in this case			
+		else: 
+			if "/exchange/data_white" in f_in:
+				flat_dset = f_in['/exchange/data_white']
+				if "/exchange/data_dark" in f_in:
+					im_dark = _medianize(f_in['/exchange/data_dark'])
+				else:					
+					skipdark = True
+			else:
+				skipflat = True # Nothing to do in this case
+	
+		# Prepare plan for dynamic flat fielding with 16 repetitions:		
+		EFF, filtEFF = dff_prepare_plan(flat_dset, 16, im_dark)
 	
 	# Outfile shape can be determined only after first processing in ext FOV mode:
 	if (ext_fov):
 
 		# Read input sino:
 		idx = num_sinos / 2
-		im = tdf.read_sino(dset,idx).astype(float32)		
-	
-		# Perform pre-processing (flat fielding, extended FOV, ring removal):	
-		if not skipflat:
-			im = flat_fielding(im, idx, plan, flat_end, half_half, half_half_line, norm_sx, norm_dx)			
+		im = tdf.read_sino(dset,idx).astype(float32)				
 		im = extfov_correction(im, ext_fov, ext_fov_rot_right, ext_fov_overlap)
-		if not skipflat:
-			im = ring_correction (im, ringrem, flat_end, plan['skip_flat_after'], half_half, half_half_line, ext_fov)	
-		else:
-			im = ring_correction (im, ringrem, False, False, half_half, half_half_line, ext_fov)	
 		
 		# Get the corrected outshape:		
 		outshape = tdf.get_dset_shape(im.shape[1], num_sinos, im.shape[0])		
@@ -272,15 +303,16 @@ def main(argv):
 			end = (num_sinos / nr_threads)*(num + 1) - 1
 		Process(target=_process, args=(lock, start, end, infile, outfile, outshape, im.dtype, skipflat, plan, norm_sx, 
 				norm_dx, flat_end, half_half, half_half_line, ext_fov, ext_fov_rot_right, ext_fov_overlap, ringrem, 
-				logfilename )).start()
+				dynamic_ff, EFF, filtEFF, im_dark, logfilename )).start()
 
 
-	#start = 0
-	#end = num_sinos - 1
-	#_process(lock, start, end, infile, outfile, outshape, im.dtype, skipflat, plan, norm_sx, norm_dx, flat_end, 
-	#		half_half, half_half_line, ext_fov, ext_fov_rot_right, ext_fov_overlap, ringrem, logfilename)
+	#start = int_from # 0
+	#end = int_to # num_sinos - 1
+	#_process(lock, start, end, infile, outfile, outshape, im.dtype, skipflat, plan, norm_sx, 
+	#			norm_dx, flat_end, half_half, half_half_line, ext_fov, ext_fov_rot_right, ext_fov_overlap, ringrem, 
+	#			dynamic_ff, EFF, filtEFF, im_dark, logfilename)
 
-	# 255 256 C:\Temp\BrunGeorgos.tdf C:\Temp\BrunGeorgos_corr.tdf 11 11 True True 900 False False 0 rivers:11;0 1 C:\Temp\log_00.txt
+	#255 256 C:\Temp\BrunGeorgos.tdf C:\Temp\BrunGeorgos_corr.tdf 0 0 True True 900 False False 0 rivers:11;0 False 1 C:\Temp\log_00.txt
 
 	
 if __name__ == "__main__":

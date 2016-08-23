@@ -5,7 +5,7 @@
     <SchemaVersion>2.0</SchemaVersion>
     <ProjectGuid>397494a0-035b-4ad0-996a-2799fb86dfcf</ProjectGuid>
     <ProjectHome>.</ProjectHome>
-    <StartupFile>exec_dff.py</StartupFile>
+    <StartupFile>exec_preprocessing.py</StartupFile>
     <SearchPath>
     </SearchPath>
     <WorkingDirectory>.</WorkingDirectory>
@@ -17,7 +17,7 @@
     </InterpreterArguments>
     <EnableNativeCodeDebugging>False</EnableNativeCodeDebugging>
     <InterpreterPath>C:\Users\Franz\Documents\Visual Studio 2012\Projects\STP-Gui\STP-Gui\bin\x64\Release\python\python-2.7.10.amd64\python.exe</InterpreterPath>
-    <CommandLineArguments>255 256 C:\Temp\test_1_ter_0.5.tdf C:\Temp\test_1_ter_0.5_dff.tdf 2 10 3 C:\Temp\log_00.txt</CommandLineArguments>
+    <CommandLineArguments>650 651 C:\Temp\AA5276_1800HS.tdf C:\Temp\AA5276_1800HS_corr.tdf 0 0 False False 900 True True 426 rivers:3;0 True 3 C:\Temp\_corr_log_00.txt</CommandLineArguments>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
     <DebugSymbols>true</DebugSymbols>
@@ -41,7 +41,6 @@
     <Folder Include="reconstruct\utils\" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="exec_dff.py" />
     <Compile Include="exec_edf2tdf.py" />
     <Compile Include="exec_his2tdf.py" />
     <Compile Include="exec_phaseretrieval.py" />
@@ -84,7 +83,6 @@
     <Compile Include="reconstruct\rec_gridrec.py" />
     <Compile Include="reconstruct\rec_mr_fbp.py" />
     <Compile Include="reconstruct\__init__.py" />
-    <Compile Include="preview_dff.py" />
     <Compile Include="tools_autolimit.py" />
     <Compile Include="tools_extractdata.py" />
     <Compile Include="tools_guesscenter.py" />
