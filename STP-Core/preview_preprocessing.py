@@ -110,8 +110,7 @@ def main(argv):
 		if "/tomo" in f_in:
 			dset = f_in['tomo']		
 		else: 
-			dset = f_in['exchange/data']
-			prov_dset = f_in['provenance/detector_output']			
+			dset = f_in['exchange/data']		
 	
 	except:
 		log = open(logfilename,"a")
@@ -163,8 +162,9 @@ def main(argv):
 			else:
 				skipflat = True # Nothing to do in this case
 	
-		# Prepare plan for dynamic flat fielding with 16 repetitions:		
-		EFF, filtEFF = dff_prepare_plan(flat_dset, 16, im_dark)
+		# Prepare plan for dynamic flat fielding with 16 repetitions:
+		if not skipflat:	
+			EFF, filtEFF = dff_prepare_plan(flat_dset, 16, im_dark)
 
 	# Read input image:
 	im = tdf.read_sino(dset,idx).astype(float32)		

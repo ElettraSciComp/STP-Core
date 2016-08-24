@@ -257,8 +257,9 @@ def main(argv):
 			else:
 				skipflat = True # Nothing to do in this case
 	
-		# Prepare plan for dynamic flat fielding with 16 repetitions:		
-		EFF, filtEFF = dff_prepare_plan(flat_dset, 16, im_dark)
+		# Prepare plan for dynamic flat fielding with 16 repetitions:	
+		if not skipflat:	
+			EFF, filtEFF = dff_prepare_plan(flat_dset, 16, im_dark)
 	
 	# Outfile shape can be determined only after first processing in ext FOV mode:
 	if (ext_fov):
