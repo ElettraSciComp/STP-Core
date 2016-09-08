@@ -47,7 +47,7 @@ def raven(im, args):
 		values	means more smoothing effect. [Suggested for default: 3]
 
     d0 : float
-        Cutoff in the range [0.1, 0.9] of the low pass filter (a Gaussian filter 
+        Cutoff in the range [0.01, 0.99] of the low pass filter (a Gaussian filter 
 		is used instead of the originally proposed Butterworth filter in order to 
 		have only one tuning parameter). Higher values means more smoothing effect. 
 		[Suggested for default: 0.5].
@@ -57,7 +57,7 @@ def raven(im, args):
     Example (using tiffile.py)
     --------------------------
     >>> im = imread('sino_orig.tif')
-    >>> im = raven(im, '3;0.5')    
+    >>> im = raven(im, '3;0.50')    
     >>> imsave('sino_flt.tif', im) 
 
     References
@@ -72,10 +72,10 @@ def raven(im, args):
     # Get args:
     param1, param2 = args.split(";")    
     n  = int(param1) 
-    d0 = (1.0 - float(param2)) / 10.0 # Simpler for user
+    d0 = (1.0 - float(param2))  # Simpler for user
     
 	# Internal parameters for Gaussian low-pass filtering:
-    d0  = d0*im.shape[1]/2.0
+    #d0  = d0*im.shape[1]/2.0
 
 	# Pad image:
     #npad = ( (im.shape[0]/2, im.shape[0]/2), (im.shape[1]/2, im.shape[1]/2) )

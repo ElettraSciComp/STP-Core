@@ -5,7 +5,7 @@
     <SchemaVersion>2.0</SchemaVersion>
     <ProjectGuid>397494a0-035b-4ad0-996a-2799fb86dfcf</ProjectGuid>
     <ProjectHome>.</ProjectHome>
-    <StartupFile>preview_preprocessing.py</StartupFile>
+    <StartupFile>tools_multioffset.py</StartupFile>
     <SearchPath>
     </SearchPath>
     <WorkingDirectory>.</WorkingDirectory>
@@ -17,7 +17,7 @@
     </InterpreterArguments>
     <EnableNativeCodeDebugging>False</EnableNativeCodeDebugging>
     <InterpreterPath>C:\Users\Franz\Documents\Visual Studio 2012\Projects\STP-Gui\STP-Gui\bin\x64\Release\python\python-2.7.10.amd64\python.exe</InterpreterPath>
-    <CommandLineArguments>650 C:\Temp\AA5276_1800HS_corr.tdf C:\Temp\AA5276_1800HS_pippo.raw 0 0 False False 900 True True 426 rivers:3;0 True C:\Temp C:\Temp\_corr_log_00.txt</CommandLineArguments>
+    <CommandLineArguments>255 "C:\Temp\Asterisco.tdf" "C:\Temp\Centri" 3.14159265358979 -73 shepp-logan 1 False False False True False False 0 False False 0 0 0 False "rivers:3;0" False 0 FBP_CUDA 1 1 False linear8:-0.01;0.01 0:0:0:0 True 0 0.1 2.5 50 11150 3.05 False 16 True "C:\Temp" 3 -80 -60 "slice" "C:\Temp\20160908102936292\_multioffset_log_00.txt"</CommandLineArguments>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
     <DebugSymbols>true</DebugSymbols>

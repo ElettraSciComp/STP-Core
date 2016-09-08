@@ -29,7 +29,7 @@
 from sys import argv, exit
 from os import remove, sep, makedirs, linesep
 from os.path import basename, exists
-from numpy import finfo, copy, float32, double, amin, amax, tile, concatenate, log as nplog, arange, meshgrid, isscalar
+from numpy import finfo, copy, float32, double, amin, amax, tile, concatenate, log as nplog, arange, meshgrid, isscalar, ndarray
 from time import time
 from multiprocessing import Process, Lock
 
@@ -37,7 +37,8 @@ from multiprocessing import Process, Lock
 from preprocess.extfov_correction import extfov_correction
 from preprocess.flat_fielding import flat_fielding
 from preprocess.ring_correction import ring_correction
-from preprocess.extract_flatdark import extract_flatdark
+from preprocess.extract_flatdark import extract_flatdark, _medianize
+from preprocess.dynamic_flatfielding import dff_prepare_plan, dynamic_flat_fielding
 
 from reconstruct.rec_astra import recon_astra_fbp, recon_astra_iterative
 from reconstruct.rec_fista_tv import recon_fista_tv
@@ -353,7 +354,8 @@ def process_gridrec(lock, int_from, int_to, num_sinos, infile, outpath, preproce
 			norm_sx, norm_dx, flat_end, half_half, 
 			half_half_line, ext_fov, ext_fov_rot_right, ext_fov_overlap, ringrem, angles, angles_projfrom, angles_projto,
 			offset, logtransform, param1, circle, scale, pad, zerone_mode, dset_min, dset_max, decim_factor, 
-			downsc_factor, corr_offset,	postprocess_required, convert_opt, crop_opt, outprefix, logfilename):
+			downsc_factor, corr_offset,	postprocess_required, convert_opt, crop_opt, dynamic_ff, EFF, filtEFF, im_dark, 
+			outprefix, logfilename):
 	"""To do...
 
 	"""
@@ -382,8 +384,12 @@ def process_gridrec(lock, int_from, int_to, num_sinos, infile, outpath, preproce
 			
 		# Perform the preprocessing of the sinograms (if required):
 		if (preprocessing_required):
-			if not skipflat:
-				im1 = flat_fielding (im1, i, corr_plan, flat_end, half_half, half_half_line, norm_sx, norm_dx).astype(float32)			
+			if not skipflat:			
+				if dynamic_ff:
+					# Dynamic flat fielding with downsampling = 2:
+					im1 = dynamic_flat_fielding(im1, i, EFF, filtEFF, 2, im_dark, norm_sx, norm_dx)
+				else:
+					im1 = flat_fielding (im1, i, corr_plan, flat_end, half_half, half_half_line, norm_sx, norm_dx).astype(float32)		
 			im1 = extfov_correction (im1, ext_fov, ext_fov_rot_right, ext_fov_overlap)
 			if not skipflat:
 				im1 = ring_correction (im1, ringrem, flat_end, corr_plan['skip_flat_after'], half_half, half_half_line, ext_fov)
@@ -391,9 +397,13 @@ def process_gridrec(lock, int_from, int_to, num_sinos, infile, outpath, preproce
 				im1 = ring_correction (im1, ringrem, False, False, half_half, half_half_line, ext_fov)
 
 			if not skipflat:
-				im2 = flat_fielding (im2, i + 1, corr_plan, flat_end, half_half, half_half_line, norm_sx, norm_dx).astype(float32)		
+				if dynamic_ff:
+					# Dynamic flat fielding with downsampling = 2:
+					im2 = dynamic_flat_fielding(im2, i, EFF, filtEFF, 2, im_dark, norm_sx, norm_dx)
+				else:
+					im2 = flat_fielding (im2, i + 1, corr_plan, flat_end, half_half, half_half_line, norm_sx, norm_dx).astype(float32)		
 			im2 = extfov_correction (im2, ext_fov, ext_fov_rot_right, ext_fov_overlap)
-			if not skipflat:			
+			if not skipflat and not dynamic_ff:		
 				im2 = ring_correction (im2, ringrem, flat_end, corr_plan['skip_flat_after'], half_half, half_half_line, ext_fov)
 			else:
 				im2 = ring_correction (im2, ringrem, False, False, half_half, half_half_line, ext_fov)
@@ -441,7 +451,8 @@ def process(lock, int_from, int_to, num_sinos, infile, outpath, preprocessing_re
 			flat_end, half_half, 
 			half_half_line, ext_fov, ext_fov_rot_right, ext_fov_overlap, ringrem, angles, angles_projfrom, angles_projto,
             offset, logtransform, param1, circle, scale, pad, method, zerone_mode, dset_min, dset_max, decim_factor, 
-			downsc_factor, corr_offset,	postprocess_required, convert_opt, crop_opt, outprefix, logfilename):
+			downsc_factor, corr_offset,	postprocess_required, convert_opt, crop_opt, dynamic_ff, EFF, filtEFF, im_dark, 
+			outprefix, logfilename):
 	"""To do...
 
 	"""
@@ -524,9 +535,13 @@ def process(lock, int_from, int_to, num_sinos, infile, outpath, preprocessing_re
 		# Perform the preprocessing of the sinogram (if required):
 		if (preprocessing_required):
 			if not skipflat:
-				im = flat_fielding (im, i, corr_plan, flat_end, half_half, half_half_line, norm_sx, norm_dx).astype(float32)			
+				if dynamic_ff:
+					# Dynamic flat fielding with downsampling = 2:
+					im = dynamic_flat_fielding(im, i, EFF, filtEFF, 2, im_dark, norm_sx, norm_dx).astype(float32)
+				else:
+					im = flat_fielding (im, i, corr_plan, flat_end, half_half, half_half_line, norm_sx, norm_dx).astype(float32)		
 			im = extfov_correction (im, ext_fov, ext_fov_rot_right, ext_fov_overlap)
-			if not skipflat:
+			if not skipflat and not dynamic_ff:
 				im = ring_correction (im, ringrem, flat_end, corr_plan['skip_flat_after'], half_half, half_half_line, ext_fov)
 			else:
 				im = ring_correction (im, ringrem, False, False, half_half, half_half_line, ext_fov)
@@ -650,9 +665,11 @@ def main(argv):
 
 	angles_projfrom = int(argv[31])	
 	angles_projto = int(argv[32])
+
+	dynamic_ff 	= True if argv[33] == "True" else False
 	
-	nr_threads = int(argv[33])	
-	logfilename = argv[34]	
+	nr_threads = int(argv[34])	
+	logfilename = argv[35]	
 	process_id = int(logfilename[-6:-4])
 	
 	# Check prefixes and path:
@@ -716,15 +733,59 @@ def main(argv):
 	corrplan = -1
 	phrtplan = -1
 	
-	skipflat = False
-	if (preprocessing_required):		
-		corrplan = extract_flatdark(f_in, flat_end, logfilename)
-		if (isscalar(corrplan['im_flat'])):
-			skipflat = True
+	skipflat = False	
+
+	im_dark = -1
+	EFF = -1
+	filtEFF = -1
+	if (preprocessing_required):
+		if not dynamic_ff:
+			# Load flat fielding plan either from cache (if required) or from TDF file and cache it for faster re-use:			
+			corrplan = extract_flatdark(f_in, flat_end, logfilename)
+			if (isscalar(corrplan['im_flat']) and isscalar(corrplan['im_flat_after']) ):
+				skipflat = True
+			
+			# Dowscale flat and dark images if necessary:
+			if isinstance(corrplan['im_flat'], ndarray):
+				corrplan['im_flat'] = corrplan['im_flat'][::downsc_factor,::downsc_factor]		
+			if isinstance(corrplan['im_dark'], ndarray):
+				corrplan['im_dark'] = corrplan['im_dark'][::downsc_factor,::downsc_factor]	
+			if isinstance(corrplan['im_flat_after'], ndarray):
+				corrplan['im_flat_after'] = corrplan['im_flat_after'][::downsc_factor,::downsc_factor]	
+			if isinstance(corrplan['im_dark_after'], ndarray):
+				corrplan['im_dark_after'] = corrplan['im_dark_after'][::downsc_factor,::downsc_factor]			
+
 		else:
-			skipflat = False
+			# Dynamic flat fielding:
+			if "/tomo" in f_in:				
+				if "/flat" in f_in:
+					flat_dset = f_in['flat']
+					if "/dark" in f_in:
+						im_dark = _medianize(f_in['dark'])
+					else:										
+						skipdark = True
+				else:
+					skipflat = True # Nothing to do in this case			
+			else: 
+				if "/exchange/data_white" in f_in:
+					flat_dset = f_in['/exchange/data_white']
+					if "/exchange/data_dark" in f_in:
+						im_dark = _medianize(f_in['/exchange/data_dark'])	
+					else:					
+						skipdark = True
+				else:
+					skipflat = True # Nothing to do in this case
 	
-	f_in.close()
+			# Prepare plan for dynamic flat fielding with 16 repetitions:		
+			if not skipflat:
+				EFF, filtEFF = dff_prepare_plan(flat_dset, 16, im_dark)
+
+				# Downscale images if necessary:
+				im_dark = im_dark[::downsc_factor,::downsc_factor]
+				EFF = EFF[::downsc_factor,::downsc_factor,:]	
+				filtEFF = filtEFF[::downsc_factor,::downsc_factor,:]	
+			
+	f_in.close()			
 		
 	# Log infos:
 	log = open(logfilename,"a")
@@ -746,14 +807,16 @@ def main(argv):
 						ext_fov_overlap, ringrem, 
 						angles, angles_projfrom, angles_projto, offset, logtrsf, param1, circle, scale, overpad, 
 						zerone_mode, dset_min, dset_max, decim_factor, downsc_factor, corr_offset, 
-						postprocess_required, convert_opt, crop_opt, outprefix, logfilename )).start()
+						postprocess_required, convert_opt, crop_opt, dynamic_ff, EFF, filtEFF, im_dark, outprefix, 
+						logfilename )).start()
 		else:
 			Process(target=process, args=(lock, start, end, num_sinos, infile, outpath, preprocessing_required, skipflat, 
 						corrplan, norm_sx, 
 						norm_dx, flat_end, half_half, half_half_line, ext_fov, ext_fov_rot_right, ext_fov_overlap, ringrem, 
 						angles, angles_projfrom, angles_projto, offset, logtrsf, param1, circle, scale, overpad, 
 						reconmethod, zerone_mode, dset_min, dset_max, decim_factor, downsc_factor, corr_offset, 
-						postprocess_required, convert_opt, crop_opt, outprefix, logfilename )).start()
+						postprocess_required, convert_opt, crop_opt, dynamic_ff, EFF, filtEFF, im_dark, outprefix, 
+						logfilename )).start()
 
 	#start = int_from
 	#end = int_to
@@ -762,16 +825,16 @@ def main(argv):
 	#					norm_dx, flat_end, half_half, half_half_line, ext_fov, ext_fov_rot_right, ext_fov_overlap, ringrem, 
 	#					angles, angles_projfrom, angles_projto, offset, logtrsf, param1, circle, scale, overpad, 
 	#					zerone_mode, dset_min, dset_max, decim_factor, downsc_factor, corr_offset, 
-	#					postprocess_required, convert_opt, crop_opt, outprefix, logfilename)
+	#					postprocess_required, convert_opt, crop_opt, dynamic_ff, EFF, filtEFF, im_dark, outprefix, logfilename)
 	#else:
 	#	process(lock, start, end, num_sinos, infile, outpath, preprocessing_required, skipflat, corrplan, norm_sx, 
 	#					norm_dx, flat_end, half_half, half_half_line, ext_fov, ext_fov_rot_right, ext_fov_overlap, ringrem, 
 	#					angles, angles_projfrom, angles_projto, offset, logtrsf, param1, circle, scale, overpad, 
 	#					reconmethod, zerone_mode, dset_min, dset_max, decim_factor, downsc_factor, corr_offset, 
-	#					postprocess_required, convert_opt, crop_opt, outprefix, logfilename)
+	#					postprocess_required, convert_opt, crop_opt, dynamic_ff, EFF, filtEFF, im_dark, outprefix, logfilename)
 
 	# Example:
-	# 255 255 C:\Temp\BrunGeorgos.tdf C:\Temp\BrunGeorgos 3.1416 -31.0 shepp-logan 1.0 False False True slice True True True 5 False False 100 0 0 False rivers:11;0 False 0.0 FBP_CUDA 1 1 False - - 0 1799 2 C:\Temp\log_00.txt
+	# 255 255 C:\Temp\BrunGeorgos.tdf C:\Temp\BrunGeorgos 3.1416 -31.0 shepp-logan 1.0 False False True slice True True True 5 False False 100 0 0 False rivers:11;0 False 0.0 FBP_CUDA 1 1 False - - 0 1799 False 2 C:\Temp\log_00.txt
 
 
 if __name__ == "__main__":

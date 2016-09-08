@@ -40,7 +40,8 @@ from preprocess.flat_fielding import flat_fielding
 from preprocess.ring_correction import ring_correction
 from preprocess.extract_flatdark import extract_flatdark
 
-from phaseretrieval.phase_retrieval import prepare_plan, phase_retrieval
+from phaseretrieval.tiehom import tiehom, tiehom_plan
+from phaseretrieval.phrt   import phrt, phrt_plan
 
 from reconstruct.rec_astra import recon_astra_fbp, recon_astra_iterative
 from reconstruct.rec_fista_tv import recon_fista_tv
@@ -215,7 +216,7 @@ def reconstruct(im, angles, offset, logtransform, param1, circle, scale, pad, me
 
 		
 def process(sino_idx, num_sinos, infile, outpath, preprocessing_required, corr_plan, norm_sx, norm_dx, flat_end, half_half, 
-			half_half_line, ext_fov, ext_fov_rot_right, ext_fov_overlap, ringrem, phaseretrieval_required, beta, delta, 
+			half_half_line, ext_fov, ext_fov_rot_right, ext_fov_overlap, ringrem, phaseretrieval_required, phrtmethod, phrt_param1, phrt_param2, 
 			energy, distance, pixsize, phrtpad, approx_win, angles, offset, logtransform, param1, circle, scale, pad, method, 
 			zerone_mode, dset_min, dset_max, decim_factor, downsc_factor, corr_offset, postprocess_required, convert_opt, 
 			crop_opt, nr_threads, off_from, off_to, logfilename, lock, slice_prefix):
@@ -294,11 +295,18 @@ def process(sino_idx, num_sinos, infile, outpath, preprocessing_required, corr_p
 		#
 
 		# Prepare the plan:		
-		phrtplan = prepare_plan (tmp_im[:,0,:], beta, delta, energy, distance, pixsize*downsc_factor, padding=phrtpad)
+		if (phrtmethod == 0):
+			# Paganin's:
+			phrtplan = tiehom_plan (tmp_im[:,0,:], phrt_param1, phrt_param2, energy, distance, pixsize*downsc_factor, padding=phrtpad)
+		else:
+			phrtplan = phrt_plan (tmp_im[:,0,:], energy, distance, pixsize*downsc_factor, phrt_param2, phrt_param1, phrtmethod, padding=phrtpad)
 		
 		# Process each projection (whose height depends on the size of the bunch):
 		for ct in range(0, tmp_im.shape[1]):
-			tmp_im[:,ct,:] = phase_retrieval(tmp_im[:,ct,:], phrtplan).astype(float32)			
+			if (phrtmethod == 0):
+				tmp_im[:,ct,:] = tiehom(tmp_im[:,ct,:], phrtplan).astype(float32)			
+			else:
+				tmp_im[:,ct,:] = phrt(tmp_im[:,ct,:], phrtplan, phrtmethod).astype(float32)	
 		
 		# Extract the requested sinogram:
 		im = tmp_im[sino_idx[0],:,:].squeeze()	
@@ -348,7 +356,7 @@ def process(sino_idx, num_sinos, infile, outpath, preprocessing_required, corr_p
 		# Actual reconstruction:
 		#reconstruct(im, angles, offset/downsc_factor, logtransform, param1, circle, scale, pad, method, 
 		#				zerone_mode, dset_min, dset_max, corr_offset, postprocess_required, convert_opt, 
-		#				crop_opt, start, end, outpath, slice_nr, downsc_factor, logfilename, lock)
+		#				crop_opt, start, end, outpath, slice_nr, downsc_factor, logfilename, lock, slice_prefix)
 
 										
 
@@ -438,25 +446,26 @@ def main(argv):
 
 	# Parameters for on-the-fly phase retrieval:
 	phaseretrieval_required = True if argv[29] == "True" else False		
-	beta = double(argv[30])   # param1( e.g. regParam, or beta)
-	delta = double(argv[31])   # param2( e.g. thresh or delta)
-	energy = double(argv[32])
-	distance = double(argv[33])    
-	pixsize = double(argv[34]) / 1000.0 # pixsixe from micron to mm:	
-	phrtpad = True if argv[35] == "True" else False
-	approx_win = int(argv[36])	
+	phrtmethod = int(argv[30])
+	phrt_param1 = double(argv[31])   # param1( e.g. regParam, or beta)
+	phrt_param2 = double(argv[32])   # param2( e.g. thresh or delta)
+	energy = double(argv[33])
+	distance = double(argv[34])    
+	pixsize = double(argv[35]) / 1000.0 # pixsixe from micron to mm:	
+	phrtpad = True if argv[36] == "True" else False
+	approx_win = int(argv[37])	
 
-	preprocessingplan_fromcache = True if argv[37] == "True" else False
-	tmppath    = argv[38]	
+	preprocessingplan_fromcache = True if argv[38] == "True" else False
+	tmppath    = argv[39]	
 	if not tmppath.endswith(sep): tmppath += sep
 
-	nr_threads = int(argv[39])	
-	off_from   = float(argv[40])
-	off_to     = float(argv[41])
+	nr_threads = int(argv[40])	
+	off_from   = float(argv[41])
+	off_to     = float(argv[42])
 
-	slice_prefix = argv[42]
+	slice_prefix = argv[43]
 		
-	logfilename = argv[43]	
+	logfilename = argv[44]	
 
 	if not exists(outpath):
 		makedirs(outpath)
@@ -537,11 +546,11 @@ def main(argv):
 
 	# Run computation:	
 	process( sino_idx, num_sinos, infile, outpath, preprocessing_required, corrplan, norm_sx, 
-				norm_dx, flat_end, half_half, half_half_line, ext_fov, ext_fov_rot_right, ext_fov_overlap, ringrem, 
-				phaseretrieval_required, beta, delta, energy, distance, pixsize, phrtpad, approx_win, angles, off_step, 
-				logtrsf, param1, circle, scale, overpad, reconmethod, zerone_mode, dset_min, dset_max, decim_factor, 
-				downsc_factor, corr_offset, postprocess_required, convert_opt, crop_opt, nr_threads, off_from, off_to,
-				logfilename, lock, slice_prefix )		
+			norm_dx, flat_end, half_half, half_half_line, ext_fov, ext_fov_rot_right, ext_fov_overlap, ringrem, 
+			phaseretrieval_required, phrtmethod, phrt_param1, phrt_param2, energy, distance, pixsize, phrtpad, 
+			approx_win, angles, off_step, logtrsf, param1, circle, scale, overpad, reconmethod, zerone_mode, 
+			dset_min, dset_max, decim_factor, downsc_factor, corr_offset, postprocess_required, convert_opt, 
+			crop_opt, nr_threads, off_from, off_to,	logfilename, lock, slice_prefix )		
 
 	# Sample:
 	# 311 C:\Temp\BrunGeorgos.tdf C:\Temp\BrunGeorgos.raw 3.1416 -31.0 shepp-logan 1.0 False False True True True True 5 False False 100 0 0 False rivers:11;0 False 0.0 FBP_CUDA - 1 1 False - - True 1.0 1000.0 22 150 2.2 True 16 True 2 C:\Temp\StupidFolder C:\Temp\log_00.txt

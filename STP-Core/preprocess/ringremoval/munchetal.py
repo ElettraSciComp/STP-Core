@@ -72,7 +72,7 @@ def munchetal(im, args):
     sigma  = float(sigma)
 
     # The wavelet transform to use : {'haar', 'db1'-'db20', 'sym2'-'sym20', 'coif1'-'coif5', 'dmey'}
-    wname = "db2"
+    wname = "db4"
 
     # Wavelet decomposition:
     coeffs = wavedec2(im.astype(float32), wname, level=wlevel)

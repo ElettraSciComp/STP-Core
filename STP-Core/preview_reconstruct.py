@@ -58,6 +58,12 @@ from tifffile import imread, imsave
 from h5py import File as getHDF5
 import io.tdf as tdf
 
+from preprocess.ringremoval.munchetal import munchetal
+from preprocess.ringremoval.boinhaibel import boinhaibel
+from preprocess.ringremoval.oimoen import oimoen
+from preprocess.ringremoval.raven import raven
+from preprocess.ringremoval.rivers import rivers
+
 
 def reconstruct(im, angles, offset, logtransform, recpar, circle, scale, pad, method, 
 				zerone_mode, dset_min, dset_max, corr_offset):
@@ -178,7 +184,7 @@ def process(sino_idx, num_sinos, infile, outfile, preprocessing_required, corr_p
 			phrt_param2, energy, distance, pixsize, phrtpad, approx_win, angles, angles_projfrom, angles_projto,
 			offset, logtransform, recpar, circle, scale, pad, method, 
 			zerone_mode, dset_min, dset_max, decim_factor, downsc_factor, corr_offset, postprocess_required, convert_opt, 
-			crop_opt, nr_threads, logfilename):
+			crop_opt, dynamic_ff, EFF, filtEFF, im_dark, nr_threads, logfilename):
 	"""To do...
 
 	"""
@@ -229,7 +235,7 @@ def process(sino_idx, num_sinos, infile, outfile, preprocessing_required, corr_p
 					test_im = flat_fielding(test_im, zrange[0]/downsc_factor, corr_plan, flat_end, half_half, 
 											half_half_line/decim_factor, norm_sx, norm_dx).astype(float32)
 			test_im = extfov_correction(test_im, ext_fov, ext_fov_rot_right, ext_fov_overlap/downsc_factor).astype(float32)			
-			if not skipflat:
+			if not skipflat and not dynamic_ff:
 				test_im = ring_correction(test_im, ringrem, flat_end, corr_plan['skip_flat_after'], half_half, 
 											half_half_line/decim_factor, ext_fov).astype(float32)	
 			else:
@@ -262,7 +268,7 @@ def process(sino_idx, num_sinos, infile, outfile, preprocessing_required, corr_p
 						test_im = flat_fielding (test_im, zrange[ct]/downsc_factor, corr_plan, flat_end, half_half, 
 											half_half_line/decim_factor, norm_sx, norm_dx).astype(float32)	
 				test_im = extfov_correction (test_im, ext_fov, ext_fov_rot_right, ext_fov_overlap/downsc_factor).astype(float32)
-				if not skipflat:
+				if not skipflat and not dynamic_ff:
 					test_im = ring_correction (test_im, ringrem, flat_end, corr_plan['skip_flat_after'], half_half, 
 											half_half_line/decim_factor, ext_fov).astype(float32)	
 				else:
@@ -283,7 +289,7 @@ def process(sino_idx, num_sinos, infile, outfile, preprocessing_required, corr_p
 		# Prepare the plan:	
 		if (phrtmethod == 0):
 			# Paganin's:
-			phrtplan = tiehom_plan (imtmp_im[:,0,:], phrt_param1, phrt_param2, energy, distance, pixsize*downsc_factor, phrtpad)
+			phrtplan = tiehom_plan (tmp_im[:,0,:], phrt_param1, phrt_param2, energy, distance, pixsize*downsc_factor, phrtpad)
 		else:
 			phrtplan = phrt_plan (tmp_im[:,0,:], energy, distance, pixsize*downsc_factor, phrt_param2, phrt_param1, phrtmethod, phrtpad)
 			#phrtplan = prepare_plan (tmp_im[:,0,:], beta, delta, energy, distance, pixsize*downsc_factor, padding=phrtpad)
@@ -294,7 +300,7 @@ def process(sino_idx, num_sinos, infile, outfile, preprocessing_required, corr_p
 			if (phrtmethod == 0):
 				tmp_im[:,ct,:] = tiehom(tmp_im[:,ct,:], phrtplan).astype(float32)			
 			else:
-				tmp_im[:,ct,:] = phrt(tmp_im[:,ct,:], phrtplan, method).astype(float32)					
+				tmp_im[:,ct,:] = phrt(tmp_im[:,ct,:], phrtplan, phrtmethod).astype(float32)					
 		
 		# Extract the requested sinogram:
 		im = tmp_im[sino_idx[0],:,:].squeeze()	
@@ -327,13 +333,20 @@ def process(sino_idx, num_sinos, infile, outfile, preprocessing_required, corr_p
 					im = flat_fielding (im, sino_idx, corr_plan, flat_end, half_half, half_half_line/decim_factor, 
 								norm_sx, norm_dx).astype(float32)		
 			im = extfov_correction (im, ext_fov, ext_fov_rot_right, ext_fov_overlap)
-			if not skipflat:
+			if not skipflat and not dynamic_ff:
 				im = ring_correction (im, ringrem, flat_end, corr_plan['skip_flat_after'], half_half, 
 								half_half_line/decim_factor, ext_fov)
 			else:
 				im = ring_correction (im, ringrem, False, False, half_half, 
 								half_half_line/decim_factor, ext_fov)
 
+
+	# Additional ring removal before reconstruction:
+	#im = boinhaibel(im, '11;') 
+	#im = munchetal(im, '5;1.8')  
+	#im = rivers(im, '13;')   
+	#im = raven(im, '11;0.8')
+	#im = oimoen(im, '51;51')
 
 	# Actual reconstruction:
 	im = reconstruct(im, angles, offset/downsc_factor, logtransform, recpar, circle, scale, pad, method, 
@@ -378,9 +391,6 @@ def main(argv):
 
 
 	"""
-	skip_flat = False
-	skip_flat_after = True	
-
 	# Get the from and to number of files to process:
 	sino_idx = int(argv[0])
 	   
@@ -454,12 +464,13 @@ def main(argv):
 	angles_projto = int(argv[39])	
 
 	preprocessingplan_fromcache = True if argv[40] == "True" else False
-	
-	nr_threads = int(argv[41])	
-	tmppath = argv[42]	
+	dynamic_ff 	= True if argv[41] == "True" else False
+
+	nr_threads = int(argv[42])	
+	tmppath = argv[43]	
 	if not tmppath.endswith(sep): tmppath += sep
 		
-	logfilename = argv[43]		
+	logfilename = argv[44]		
 			
 	# Open the HDF5 file:
 	f_in = getHDF5(infile, 'r')
@@ -493,8 +504,12 @@ def main(argv):
 		sino_idx = num_sinos - 1
 	
 	# Get correction plan and phase retrieval plan (if required):
-	corrplan = 0	
 	skipflat = False
+	
+	corrplan = 0	
+	im_dark = 0
+	EFF = 0
+	filtEFF = 0
 	if (preprocessing_required):
 		if not dynamic_ff:
 			# Load flat fielding plan either from cache (if required) or from TDF file and cache it for faster re-use:
@@ -547,12 +562,13 @@ def main(argv):
 					skipflat = True # Nothing to do in this case
 	
 			# Prepare plan for dynamic flat fielding with 16 repetitions:		
-			EFF, filtEFF = dff_prepare_plan(flat_dset, 16, im_dark)
+			if not skipflat:
+				EFF, filtEFF = dff_prepare_plan(flat_dset, 16, im_dark)
 
-			# Downscale images if necessary:
-			im_dark = im_dark[::downsc_factor,::downsc_factor]
-			EFF = EFF[::downsc_factor,::downsc_factor,:]	
-			filtEFF = filtEFF[::downsc_factor,::downsc_factor,:]	
+				# Downscale images if necessary:
+				im_dark = im_dark[::downsc_factor,::downsc_factor]
+				EFF = EFF[::downsc_factor,::downsc_factor,:]	
+				filtEFF = filtEFF[::downsc_factor,::downsc_factor,:]	
 			
 	f_in.close()			
 
@@ -562,10 +578,10 @@ def main(argv):
 				phaseretrieval_required, phrtmethod, phrt_param1, phrt_param2, energy, distance, pixsize, phrtpad, approx_win, angles, 
 				angles_projfrom, angles_projto, offset, 
 				logtrsf, recpar, circle, scale, overpad, reconmethod, zerone_mode, dset_min, dset_max, decim_factor, 
-				downsc_factor, corr_offset, postprocess_required, convert_opt, crop_opt, nr_threads, logfilename )		
+				downsc_factor, corr_offset, postprocess_required, convert_opt, crop_opt, dynamic_ff, EFF, filtEFF, im_dark, nr_threads, logfilename )		
 
 	# Sample:
-	# 311 C:\Temp\BrunGeorgos.tdf C:\Temp\BrunGeorgos.raw 3.1416 -31.0 shepp-logan 1.0 False False True True True True 5 False False 100 0 0 False rivers:11;0 False 0.0 FBP_CUDA 1 1 False - - True 5 1.0 1000.0 22 150 2.2 True 16 0 1799 True 2 C:\Temp\StupidFolder C:\Temp\log_00.txt
+	# 311 C:\Temp\BrunGeorgos.tdf C:\Temp\BrunGeorgos.raw 3.1416 -31.0 shepp-logan 1.0 False False True True True True 5 False False 100 0 0 False rivers:11;0 False 0.0 FBP_CUDA 1 1 False - - True 5 1.0 1000.0 22 150 2.2 True 16 0 1799 True True 2 C:\Temp\StupidFolder C:\Temp\log_00.txt
 
 
 
