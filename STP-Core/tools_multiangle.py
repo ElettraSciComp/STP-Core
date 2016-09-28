@@ -72,9 +72,9 @@ def write_log(lock, fname, logfilename):
 	finally:
 		lock.release()	
 
-def reconstruct(im, angles, angles_projfrom, angles_projto, offset, logtransform, param1, circle, scale, pad, method, 
+def reconstruct(im, angles, offset, logtransform, param1, circle, scale, pad, method, 
 				zerone_mode, dset_min, dset_max, corr_offset, postprocess_required, convert_opt, 
-			    crop_opt, start, end, outpath, sino_idx, downsc_factor, logfilename, lock, slice_prefix):
+			    crop_opt, start, end, outpath, sino_idx, downsc_factor, decim_factor, logfilename, lock, slice_prefix):
 	"""Reconstruct a sinogram with FBP algorithm (from ASTRA toolbox).
 
 	Parameters
@@ -109,58 +109,64 @@ def reconstruct(im, angles, angles_projfrom, angles_projto, offset, logtransform
 		siz_orig1 = im_f.shape[1]		
 		im_f = imresize(im_f, (im_f.shape[0], int(round(scale * im_f.shape[1]))), interp='bicubic', mode='F')
 		offset = int(offset * scale)	
+	
+	offset = int(round(offset))
 
-	# Loop for all the required offsets for the center of rotation:
-	for i in range(int(round(start)), int(round(end)) + 1, downsc_factor):      	
+	# Apply transformation for changes in the center of rotation:
+	if (offset != 0):
+		if (offset >= 0):
+			im_f = im_f[:,:-offset]
 		
-		offset = int(round(i/downsc_factor))
-
-		# Apply transformation for changes in the center of rotation:
-		if (offset != 0):
-			if (offset >= 0):
-				im_f = im_f[:,:-offset]
-			
-				tmp = im_f[:,0] # Get first column
-				tmp = tile(tmp, (offset,1)) # Replicate the first column the right number of times
-				im_f = concatenate((tmp.T,im_f), axis=1) # Concatenate tmp before the image
+			tmp = im_f[:,0] # Get first column
+			tmp = tile(tmp, (offset,1)) # Replicate the first column the right number of times
+			im_f = concatenate((tmp.T,im_f), axis=1) # Concatenate tmp before the image
 						
-			else:
-				im_f = im_f[:,abs(offset):] 	
-			
-				tmp = im_f[:,im_f.shape[1] - 1] # Get last column
-				tmp = tile(tmp, (abs(offset),1)) # Replicate the last column the right number of times
-				im_f = concatenate((im_f,tmp.T), axis=1) # Concatenate tmp after the image	
-	
-		# Downscale projections (without pixel averaging):
-		#if downsc_factor > 1:
-		#	im = im[:,::downsc_factor]			
-			
-		# Scale image to [0,1] range (if required):
-		if (zerone_mode):
+		else:
+			im_f = im_f[:,abs(offset):] 	
 		
-			#print dset_min
-			#print dset_max
-			#print numpy.amin(im_f[:])
-			#print numpy.amax(im_f[:])
-			#im_f = (im_f - dset_min) / (dset_max - dset_min)
-		
-			# Cheating the whole process:
-			im_f = (im_f - numpy.amin(im_f[:])) / (numpy.amax(im_f[:]) - numpy.amin(im_f[:]))
-			
-		# Apply log transform:
-		if (logtransform == True):						
-			im_f[im_f <= finfo(float32).eps] = finfo(float32).eps
-			im_f = -nplog(im_f + corr_offset)	
+			tmp = im_f[:,im_f.shape[1] - 1] # Get last column
+			tmp = tile(tmp, (abs(offset),1)) # Replicate the last column the right number of times
+			im_f = concatenate((im_f,tmp.T), axis=1) # Concatenate tmp after the image	
 	
-		# Replicate pad image to double the width:
-		if (pad):	
+	# Downscale projections (without pixel averaging):
+	#if downsc_factor > 1:
+	#	im = im[:,::downsc_factor]			
+			
+	# Scale image to [0,1] range (if required):
+	if (zerone_mode):
+		
+		#print dset_min
+		#print dset_max
+		#print numpy.amin(im_f[:])
+		#print numpy.amax(im_f[:])
+		#im_f = (im_f - dset_min) / (dset_max - dset_min)
+		
+		# Cheating the whole process:
+		im_f = (im_f - numpy.amin(im_f[:])) / (numpy.amax(im_f[:]) - numpy.amin(im_f[:]))
+			
+	# Apply log transform:
+	if (logtransform == True):						
+		im_f[im_f <= finfo(float32).eps] = finfo(float32).eps
+		im_f = -nplog(im_f + corr_offset)	
+	
+	# Replicate pad image to double the width:
+	if (pad):	
 
-			dim_o = im_f.shape[1]		
-			n_pad = im_f.shape[1] + im_f.shape[1] / 2					
-			marg  = (n_pad - dim_o) / 2	
+		dim_o = im_f.shape[1]		
+		n_pad = im_f.shape[1] + im_f.shape[1] / 2					
+		marg  = (n_pad - dim_o) / 2	
 	
-			# Pad image:
-			im_f = padSmoothWidth(im_f, n_pad)		
+		# Pad image:
+		im_f = padSmoothWidth(im_f, n_pad)		
+
+	# Loop for all the required angles:
+	for i in range(int(round(start)), int(round(end)) + 1):      	
+
+		# Save image for next step:
+		im = im_f
+		
+		# Apply projection removal (if required):
+		im_f = im_f[0:int(round(i/decim_factor)), :]	
 	
 		# Perform the actual reconstruction:
 		if (method.startswith('FBP')):
@@ -175,7 +181,6 @@ def reconstruct(im, angles, angles_projfrom, angles_projto, offset, logtransform
 			[im_f, im_f] = recon_gridrec(im_f, im_f, angles, param1)		
 		else:
 			im_f = recon_astra_iterative(im_f, angles, method, param1, zerone_mode)	
-
 		
 		# Crop:
 		if (pad):		
@@ -202,11 +207,7 @@ def reconstruct(im, angles, angles_projfrom, angles_projto, offset, logtransform
 				im_f = im_f * a			
 
 		# Write down reconstructed image (file name modified with metadata):		
-		if ( i >= 0 ):
-			fname = outpath + slice_prefix + '_' + str(sino_idx).zfill(4) + '_proj=' + str(angles_projto - angles_projfrom) + '_col=' + str((im_f.shape[1] + offset)*downsc_factor).zfill(4) + '_off=+' + str(abs(offset*downsc_factor)).zfill(4) + '.tif'
-		else:
-			fname = outpath + slice_prefix + '_' + str(sino_idx).zfill(4) + '_proj=' + str(angles_projto - angles_projfrom) + '_col=' + str((im_f.shape[1] + offset)*downsc_factor).zfill(4) + '_off=-' + str(abs(offset*downsc_factor)).zfill(4) + '.tif'
-		
+		fname = outpath + slice_prefix + '_' + str(sino_idx).zfill(4) + '_off=' + str(offset*downsc_factor).zfill(4) + '_proj=' + str(i).zfill(4) + '.tif'
 		imsave(fname, im_f)	
 
 		# Restore original image for next step:
@@ -218,10 +219,10 @@ def reconstruct(im, angles, angles_projfrom, angles_projto, offset, logtransform
 		
 def process(sino_idx, num_sinos, infile, outpath, preprocessing_required, corr_plan, norm_sx, norm_dx, flat_end, half_half, 
 			half_half_line, ext_fov, ext_fov_rot_right, ext_fov_overlap, ringrem, phaseretrieval_required, phrtmethod, 
-			phrt_param1, phrt_param2, energy, distance, pixsize, phrtpad, approx_win, angles, angles_projfrom, angles_projto, 
-			offset, logtransform, param1, circle, scale, pad, method, 
+			phrt_param1, phrt_param2, 
+			energy, distance, pixsize, phrtpad, approx_win, angles, offset, logtransform, param1, circle, scale, pad, method, 
 			zerone_mode, dset_min, dset_max, decim_factor, downsc_factor, corr_offset, postprocess_required, convert_opt, 
-			crop_opt, nr_threads, off_from, off_to, logfilename, lock, slice_prefix):
+			crop_opt, nr_threads, angles_from, angles_to, logfilename, lock, slice_prefix):
 	"""To do...
 
 	"""
@@ -275,11 +276,6 @@ def process(sino_idx, num_sinos, infile, outpath, preprocessing_required, corr_p
 		for ct in range(1, approx_win):
 			
 			test_im = tdf.read_sino(dset, zrange[ct]).astype(float32)
-
-			# Apply projection removal (if required):
-			test_im = test_im[angles_projfrom:angles_projto, :]
-			
-			# Apply decimation and downscaling (if required):
 			test_im = test_im[::decim_factor, ::downsc_factor]
 			
 			# Perform the pre-processing for each sinogram of the bunch:
@@ -329,9 +325,6 @@ def process(sino_idx, num_sinos, infile, outpath, preprocessing_required, corr_p
 		im = tdf.read_sino(dset,sino_idx).astype(float32)		
 		f_in.close()
 
-		# Apply projection removal (if required):
-		im = im[angles_projfrom:angles_projto, :]
-
 		# Downscale and decimate the sinogram:
 		im = im[::decim_factor,::downsc_factor]
 		sino_idx = sino_idx/downsc_factor	
@@ -352,30 +345,27 @@ def process(sino_idx, num_sinos, infile, outpath, preprocessing_required, corr_p
 
 	# Split the computation into multiple processes:
 	for num in range(nr_threads):
-		start = ( (off_to - off_from + 1) / nr_threads)*num + off_from
+		start = ( (angles_to - angles_from + 1) / nr_threads)*num + angles_from
 		if (num == nr_threads - 1):
-			end = off_to
+			end = angles_to
 		else:
-			end = ( (off_to - off_from + 1) / nr_threads)*(num + 1) + off_from - 1
+			end = ( (angles_to - angles_from + 1) / nr_threads)*(num + 1) + angles_from - 1
 
-		#Process(target=reconstruct, args=(im, angles, angles_projfrom, angles_projto, offset/downsc_factor, 
-		#				logtransform, param1, circle, scale, pad, method, 
-		#				zerone_mode, dset_min, dset_max, corr_offset, postprocess_required, convert_opt, 
-		#				crop_opt, start, end, outpath, slice_nr, downsc_factor, logfilename, lock, slice_prefix)).start()
+		#Process(target=reconstruct, args=(im, angles, offset/downsc_factor, logtransform, param1, circle, scale, pad, method, 
+		#				zerone_mode, dset_min, dset_max, corr_offset, postprocess_required, convert_opt, crop_opt, start, end, 
+		#               outpath, slice_nr, downsc_factor, decim_factor, logfilename, lock, slice_prefix)).start()
 
 
 		# Actual reconstruction:
-		reconstruct(im, angles, angles_projfrom, angles_projto, offset/downsc_factor, logtransform, 
-						param1, circle, scale, pad, method, 
-						zerone_mode, dset_min, dset_max, corr_offset, postprocess_required, convert_opt, 
-						crop_opt, start, end, outpath, slice_nr, downsc_factor, logfilename, lock, slice_prefix)
+		reconstruct(im, angles, offset/downsc_factor, logtransform, param1, circle, scale, pad, method, 
+						zerone_mode, dset_min, dset_max, corr_offset, postprocess_required, convert_opt, crop_opt, 
+						start, end, outpath, slice_nr, downsc_factor, decim_factor, logfilename, lock, slice_prefix)
 
 										
 
 
 def main(argv):          
 	"""To do...
-
 
 
 	"""
@@ -392,7 +382,7 @@ def main(argv):
 
 	# Essential reconstruction parameters::
 	angles   = float(argv[3])
-	off_step = float(argv[4])
+	offset   = float(argv[4])
 	param1   = argv[5]	
 	scale    = int(float(argv[6]))
 	
@@ -452,20 +442,17 @@ def main(argv):
 	phrtpad = True if argv[36] == "True" else False
 	approx_win = int(argv[37])	
 
-	angles_projfrom = int(argv[38])	
-	angles_projto = int(argv[39])
-
-	preprocessingplan_fromcache = True if argv[40] == "True" else False
-	tmppath    = argv[41]	
+	preprocessingplan_fromcache = True if argv[38] == "True" else False
+	tmppath    = argv[39]	
 	if not tmppath.endswith(sep): tmppath += sep
 
-	nr_threads = int(argv[42])	
-	off_from   = float(argv[43])
-	off_to     = float(argv[44])
+	nr_threads = int(argv[40])	
+	angles_from = float(argv[41])
+	angles_to   = float(argv[42])
 
-	slice_prefix = argv[45]
+	slice_prefix = argv[43]
 		
-	logfilename = argv[46]	
+	logfilename = argv[44]	
 
 	if not exists(outpath):
 		makedirs(outpath)
@@ -548,13 +535,12 @@ def main(argv):
 	process( sino_idx, num_sinos, infile, outpath, preprocessing_required, corrplan, norm_sx, 
 			norm_dx, flat_end, half_half, half_half_line, ext_fov, ext_fov_rot_right, ext_fov_overlap, ringrem, 
 			phaseretrieval_required, phrtmethod, phrt_param1, phrt_param2, energy, distance, pixsize, phrtpad, 
-			approx_win, angles, angles_projfrom, angles_projto, 
-			off_step, logtrsf, param1, circle, scale, overpad, reconmethod, zerone_mode, 
+			approx_win, angles, offset, logtrsf, param1, circle, scale, overpad, reconmethod, zerone_mode, 
 			dset_min, dset_max, decim_factor, downsc_factor, corr_offset, postprocess_required, convert_opt, 
-			crop_opt, nr_threads, off_from, off_to,	logfilename, lock, slice_prefix )		
+			crop_opt, nr_threads, angles_from, angles_to, logfilename, lock, slice_prefix )		
 
 	# Sample:
-	# 26 C:\Temp\dataset42.tdf C:\Temp\test_offset 3.1416 1.0 shepp-logan 1.0 False True True True True False 5 False False 100 0 0 False rivers:11;0 False 0.0 FBP_CUDA 1 4 False - - False 0 1.0 1000.0 22 150 2.2 True 16 0 1163 False C:\Temp 1 -78 -70 slice C:\Temp\log_angles_00.txt
+	# 26 C:\Temp\dataset42.tdf C:\Temp\test_angles 3.1416 -72.0 shepp-logan 1.0 False True True True True False 5 False False 100 0 0 False rivers:11;0 False 0.0 FBP_CUDA 1 4 False - - False 0 1.0 1000.0 22 150 2.2 True 16 False C:\Temp 1 1148 1248 slice C:\Temp\log_angles_00.txt
 
 
 

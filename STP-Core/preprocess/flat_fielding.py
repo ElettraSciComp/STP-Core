@@ -22,7 +22,7 @@
 
 #
 # Author: Francesco Brun
-# Last modified: July, 8th 2016
+# Last modified: Setp, 28th 2016
 #
 
 from numpy import float32, finfo, ndarray
@@ -30,8 +30,6 @@ from numpy import median, amin, amax
 from numpy import tile, concatenate
 
 from scipy.ndimage.filters import median_filter
-
-
 
 def flat_fielding (im, i, plan, flat_end, half_half, half_half_line, norm_sx, norm_dx):
 	"""Process a sinogram with conventional flat fielding plus reference normalization.
@@ -140,7 +138,7 @@ def flat_fielding (im, i, plan, flat_end, half_half, half_half_line, norm_sx, no
 					
 					im_dark_air_before = tile(im_dark_air_before, (half_half_line,1)) 
 					im_dark_air_after = tile(im_dark_air_after, (im.shape[0]-half_half_line,1)) 
-					im_dark_air = concatenate((im_dark_air_before,im_dark_air_after), axis=0)				
+					im_dark_air = concatenate((im_dark_air_before,im_dark_air_after), axis=0)		
 								
 					# Set a norm coefficient for avoiding for cycle:
 					norm_coeff = median(im_air, axis=1) / (median(im_flat_air, axis=1) + finfo(float32).eps)
@@ -190,7 +188,7 @@ def flat_fielding (im, i, plan, flat_end, half_half, half_half_line, norm_sx, no
 						im_dark_dx = im_dark[i,-norm_dx:]
 						im_dark_air = concatenate((im_dark_sx,im_dark_dx), axis=1)						
 						
-					im_dark_air = tile(im_dark_air, (im.shape[0],1)) 				
+					im_dark_air = tile(im_dark_air, (im.shape[0],1)) 	
 								
 					# Set a norm coefficient for avoiding for cycle:
 					norm_coeff = median(im_air, axis=1) / (median(im_flat_air, axis=1) + finfo(float32).eps)

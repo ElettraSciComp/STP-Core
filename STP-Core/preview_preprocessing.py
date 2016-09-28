@@ -22,7 +22,7 @@
 
 #
 # Author: Francesco Brun
-# Last modified: July, 8th 2016
+# Last modified: Sept, 28th 2016
 #
 
 from sys import argv, exit
@@ -45,21 +45,6 @@ import io.tdf as tdf
 def main(argv):          
 	"""To do...
 
-	Usage
-	-----
-	
-
-	Parameters
-	---------
-		   
-	Example
-	--------------------------
-	The following line processes the first ten TIFF files of input path 
-	"/home/in" and saves the processed files to "/home/out" with the 
-	application of the Boin and Haibel filter with smoothing via a Butterworth
-	filter of order 4 and cutoff frequency 0.01:
-
-	destripe /home/in /home/out 1 10 1 0.01 4    
 
 	"""
 	# Get the zero-order index of the sinogram to pre-process:
@@ -167,7 +152,7 @@ def main(argv):
 			EFF, filtEFF = dff_prepare_plan(flat_dset, 16, im_dark)
 
 	# Read input image:
-	im = tdf.read_sino(dset,idx).astype(float32)		
+	im = tdf.read_sino(dset,idx).astype(float32)	
 	f_in.close()	
 
 	# Perform pre-processing (flat fielding, extended FOV, ring removal):	

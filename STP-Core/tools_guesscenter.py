@@ -22,7 +22,7 @@
 
 #
 # Author: Francesco Brun
-# Last modified: July, 8th 2016
+# Last modified: Sept, 28th 2016
 #
 
 from math import pi
@@ -64,8 +64,14 @@ def main(argv):
 	angles  : int
         Total number of angles of the input dataset	
 
+	proj_from : int
+        Initial projections to consider for the assumed angles
+
+	proj_to : int
+        Final projections to consider for the assumed angles
+
 	method : string
-		One of the following options: "registration"
+		(not implemented yet)
 
 	tmppath : string
         Temporary path where look for cached flat/dark files
@@ -76,8 +82,10 @@ def main(argv):
 	outfile = argv[1]          # The txt file with the proposed center
 	scale   = float(argv[2])
 	angles  = float(argv[3])
-	method  = argv[4]
-	tmppath = argv[5]	
+	proj_from  = int(argv[4])
+	proj_to  = int(argv[5])
+	method  = argv[6]
+	tmppath = argv[7]	
 	if not tmppath.endswith(sep): tmppath += sep	
 
 	pyfftw_cache_disable()
@@ -106,9 +114,9 @@ def main(argv):
 		plan2cache(corrplan, infile, tmppath)
 
 	# Get first and the 180 deg projections: 	
-	im1 = tdf.read_tomo(dset,0).astype(float32)	
+	im1 = tdf.read_tomo(dset,proj_from).astype(float32)	
 
-	idx = int(round(num_proj/angles * pi)) - 1
+	idx = int(round( (proj_to - proj_from)/angles * pi)) + proj_from
 	im2 = tdf.read_tomo(dset,idx).astype(float32)		
 
 	# Apply simple flat fielding (if applicable):
