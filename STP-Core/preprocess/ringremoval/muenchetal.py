@@ -25,17 +25,20 @@
 # Last modified: July, 8th 2016
 #
 
-from numpy.fft import fft, ifft, fftshift, ifftshift
+from numpy.fft import fftshift, ifftshift
 from numpy import real, exp as npexp, ComplexWarning
 from numpy import arange, floor, kron, ones, float32
 
-#from pyfftw.interfaces.numpy_fft import fft, ifft
+from pyfftw import n_byte_align, simd_alignment
+#from numpy.fft import fft, ifft
+from pyfftw.interfaces.numpy_fft import fft, ifft
+
 from pywt import wavedec2, waverec2
 
 from warnings import simplefilter
 
 
-def munchetal(im, args):
+def muenchetal(im, args):
     """Process a sinogram image with the Munch et al. de-striping algorithm.
 
     Parameters
@@ -72,7 +75,7 @@ def munchetal(im, args):
     sigma  = float(sigma)
 
     # The wavelet transform to use : {'haar', 'db1'-'db20', 'sym2'-'sym20', 'coif1'-'coif5', 'dmey'}
-    wname = "db4"
+    wname = "db5"
 
     # Wavelet decomposition:
     coeffs = wavedec2(im.astype(float32), wname, level=wlevel)
@@ -82,7 +85,9 @@ def munchetal(im, args):
     for i in range(1, wlevel + 1):  
 
         # FFT:
-        fcV = fftshift(fft(coeffs[i][1], axis=0))  
+        n_byte_align(coeffs[i][1], simd_alignment) 
+        siz = coeffs[i][1].shape[0]
+        fcV = fftshift(fft(coeffs[i][1], siz*2, axis=0, threads=2))  
         my, mx = fcV.shape
         
         # Damping of vertical stripes:
@@ -91,8 +96,10 @@ def munchetal(im, args):
         fcV = fcV * dampprime    
 
         # Inverse FFT:
-        fcVflt = ifft(ifftshift(fcV), axis=0)
-        cVHDtup = (coeffs[i][0], fcVflt, coeffs[i][2])             
+        fcV = ifftshift(fcV)
+        n_byte_align(fcV, simd_alignment)
+        fcVflt = ifft(fcV, axis=0, threads=2)
+        cVHDtup = (coeffs[i][0], fcVflt[0:siz,:], coeffs[i][2])             
         coeffsFlt.append(cVHDtup)
 
     # Get wavelet reconstruction:

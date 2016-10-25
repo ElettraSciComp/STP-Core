@@ -58,12 +58,6 @@ from tifffile import imread, imsave
 from h5py import File as getHDF5
 import io.tdf as tdf
 
-from preprocess.ringremoval.munchetal import munchetal
-from preprocess.ringremoval.boinhaibel import boinhaibel
-from preprocess.ringremoval.oimoen import oimoen
-from preprocess.ringremoval.raven import raven
-from preprocess.ringremoval.rivers import rivers
-
 
 def reconstruct(im, angles, offset, logtransform, recpar, circle, scale, pad, method, 
 				zerone_mode, dset_min, dset_max, corr_offset):
