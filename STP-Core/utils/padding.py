@@ -33,16 +33,16 @@ from tifffile import imread, imsave # only for debug
 def upperPowerOfTwo(v):
 	"""Return the upper power of two of input value
 
-    Parameters
-    ----------
-    v : int
+	Parameters
+	----------
+	v : int
 		A positive integer value
 
 	Return value
 	----------
 	An integer value	
 	
-    """
+	"""
 	v = c_uint32(v).value
 	v -= 1
 	v |= v >> 1
@@ -57,9 +57,9 @@ def replicatePadImage(im, marg0, marg1):
 	"""Pad the input image by replicating first and last column as well as first and last row
 	   the specified number of times.
 
-    Parameters
-    ----------    
-    im : array_like
+	Parameters
+	----------    
+	im : array_like
 		Image data as numpy array.
 
 	marg0 : int
@@ -72,7 +72,7 @@ def replicatePadImage(im, marg0, marg1):
 	----------
 	A replicated-padded image.	
 	
-    """
+	"""
 	# Pad first side (replicate first column):
 	tmp = im[:,0] # Get first column
 	tmp = tile(tmp, (marg1,1) ) # Replicate the first column the right number of times
@@ -98,9 +98,9 @@ def replicatePadImage(im, marg0, marg1):
 def zeroPadImage(im, marg0, marg1):
 	"""Pad the input image by adding zeros.
 
-    Parameters
-    ----------    
-    im : array_like
+	Parameters
+	----------    
+	im : array_like
 		Image data as numpy array.
 
 	marg0 : int
@@ -113,7 +113,7 @@ def zeroPadImage(im, marg0, marg1):
 	----------
 	A zero-padded image.
 	
-    """
+	"""
 	# Pad first side (zeros before first column):
 	tmp = zeros(im[:,0].shape) # Get a column of zeros
 	tmp = tile(tmp, (marg1,1) ) # Replicate the column the right number of times
@@ -139,9 +139,9 @@ def zeroPadImage(im, marg0, marg1):
 def padImage(im, n_pad0, n_pad1):
 	"""Replicate pad the input image to the specified new dimensions.
 
-    Parameters
-    ----------    
-    im : array_like
+	Parameters
+	----------    
+	im : array_like
 		Image data as numpy array
 
 	n_pad0 : int
@@ -154,7 +154,7 @@ def padImage(im, n_pad0, n_pad1):
 	----------
 	A padded image	
 	
-    """
+	"""
 	marg0 = (n_pad0 - im.shape[0]) / 2
 	marg0 = marg0 / 2
 	marg1 = (n_pad1 - im.shape[1]) / 2
@@ -181,9 +181,9 @@ def padImage(im, n_pad0, n_pad1):
 def padSmoothWidth(im, n_pad):
 	"""Pad the input image to the specified new width by replicate padding with Hanning smoothing to zero.
 
-    Parameters
-    ----------    
-    im : array_like
+	Parameters
+	----------    
+	im : array_like
 		Image data as numpy array.
 
 	n_pad : int
@@ -193,7 +193,7 @@ def padSmoothWidth(im, n_pad):
 	----------
 	A padded image	
 	
-    """
+	"""
 	# Get margin:
 	marg = (n_pad - im.shape[1]) / 2
 	
@@ -219,7 +219,7 @@ def padSmoothWidth(im, n_pad):
 
 	# Apply smoothing:	
 	im = im * vmatrix
-	im [im < 0.0] = 0.0
-	im = im + finfo(float32).eps	
+	im = im.astype(float32)
+	im [im < finfo(float32).eps] = finfo(float32).eps
 			
 	return im.astype(float32)

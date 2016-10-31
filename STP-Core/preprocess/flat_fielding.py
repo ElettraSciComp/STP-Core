@@ -25,7 +25,7 @@
 # Last modified: Setp, 28th 2016
 #
 
-from numpy import float32, finfo, ndarray
+from numpy import float32, finfo, ndarray, isnan
 from numpy import median, amin, amax, nonzero
 from numpy import tile, concatenate, reshape, interp
 
@@ -45,6 +45,10 @@ def _dead_correction (im):
 	im_f = im.flatten()
 	val, x = (im_f == 0), lambda z: z.nonzero()[0]
 	im_f[val] = interp(x(val), x(~val), im_f[~val])
+
+	val, x = isnan(im_f), lambda z: z.nonzero()[0]
+	im_f[val] = interp(x(val), x(~val), im_f[~val])
+
 	im = reshape(im_f, (im.shape[1], im.shape[0]), order='F').copy().T
 
 	return im 

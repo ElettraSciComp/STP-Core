@@ -5,7 +5,7 @@
     <SchemaVersion>2.0</SchemaVersion>
     <ProjectGuid>397494a0-035b-4ad0-996a-2799fb86dfcf</ProjectGuid>
     <ProjectHome>.</ProjectHome>
-    <StartupFile>preview_preprocessing.py</StartupFile>
+    <StartupFile>preview_reconstruct.py</StartupFile>
     <SearchPath>
     </SearchPath>
     <WorkingDirectory>.</WorkingDirectory>
@@ -17,7 +17,7 @@
     </InterpreterArguments>
     <EnableNativeCodeDebugging>False</EnableNativeCodeDebugging>
     <InterpreterPath>C:\Users\Franz\Documents\Visual Studio 2012\Projects\STP-Gui\STP-Gui\bin\x64\Release\python\python-2.7.10.amd64\python.exe</InterpreterPath>
-    <CommandLineArguments>38 "C:\Temp\C_continuous.tdf" "C:\Temp\deringata.raw" 0 0 False False 624 False False 0 rivers:31;0 False "C:\Temp" "C:\Temp\_corr_log_00.txt"</CommandLineArguments>
+    <CommandLineArguments>39 "C:\Temp\C_continuous.tdf" "C:\Temp\20161031181041834\20161031181113474" 3.14159265358979 -66 shepp-logan 1 True False True True False False 624 False False 0 0 0 False "rivers:51;0" False 0 FBP_CUDA 1 1 False linear8:-0.01;0.01 0:0:0:0 True 0 6.9738E-11 1.6189E-07 38 1850 60 False 32 0 1164 True False 1 "C:\Temp\20161031181041834" "C:\Temp\20161031181041834\_rec_log_00.txt"</CommandLineArguments>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
     <DebugSymbols>true</DebugSymbols>
@@ -95,6 +95,9 @@
     <Compile Include="utils\caching.py" />
     <Compile Include="utils\findcenter.py" />
     <Compile Include="utils\padding.py" />
+    <Compile Include="utils\replace_nan.py">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="utils\__init__.py" />
   </ItemGroup>
   <Import Condition="Exists($(PtvsTargetsFile))" Project="$(PtvsTargetsFile)" />
