@@ -54,7 +54,6 @@ def _windowing_lr(im, marg):
 
 	# Apply smoothing:
 	im = im * vmatrix
-	im[im < 0.0] = finfo(float32).eps
 
 	return im.astype(float32)
 
@@ -101,12 +100,12 @@ def raven(im, args):
 	d0 = (1.0 - float(param2))  # Simpler for user
 	
 	# Internal parameters for Gaussian low-pass filtering:
-	d0 = d0 * im.shape[1] / 8.0
+	d0 = d0 * (im.shape[1] / 2.0)
 
 	# Pad image:
 	marg = im.shape
-	im = pad(im, pad_width=((im.shape[0] / 2, im.shape[0] / 2), (0,0)), mode='constant') # or 'reflect' 
-	im = pad(im, pad_width=((0,0) ,(im.shape[1] / 2, im.shape[1] / 2)), mode='constant') # or 'edge' 
+	im = pad(im, pad_width=((im.shape[0] / 2, im.shape[0] / 2), (0,0)), mode='reflect') # or 'constant' for zero padding
+	im = pad(im, pad_width=((0,0) ,(im.shape[1] / 2, im.shape[1] / 2)), mode='edge')    # or 'constant' for zero padding
 
 	# Windowing:
 	im = _windowing_lr(im, marg[1])
@@ -145,7 +144,7 @@ def raven(im, args):
 	im = real(ifft2(im, threads=2))
 
 	# Crop image:
-	im = im[im.shape[0] / 4:-im.shape[0] / 4, im.shape[1] / 4:-im.shape[1] / 4]
+	im = im[im.shape[0] / 4:(im.shape[0] / 4 + marg[0]), im.shape[1] / 4:(im.shape[1] / 4 + marg[1])]
 
 	# Return image:
 	return im.astype(float32)

@@ -161,7 +161,8 @@ def main(argv):
 			# Dynamic flat fielding with downsampling = 2:
 			im = dynamic_flat_fielding(im, idx, EFF, filtEFF, 2, im_dark, norm_sx, norm_dx)
 		else:
-			im = flat_fielding(im, idx, corrplan, flat_end, half_half, half_half_line, norm_sx, norm_dx)			
+			im = flat_fielding(im, idx, corrplan, flat_end, half_half, half_half_line, norm_sx, norm_dx)	
+						
 	im = extfov_correction(im, ext_fov, ext_fov_rot_right, ext_fov_overlap)
 	if not skipflat and not dynamic_ff:
 		im = ring_correction (im, ringrem, flat_end, corrplan['skip_flat_after'], half_half, half_half_line, ext_fov)		

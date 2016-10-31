@@ -26,20 +26,63 @@
 #
 
 from numpy import float32, finfo, ndarray
-from numpy import median, amin, amax
-from numpy import tile, concatenate
+from numpy import median, amin, amax, nonzero
+from numpy import tile, concatenate, reshape, interp
 
 from scipy.ndimage.filters import median_filter
+
+def _dead_correction (im):
+	"""Correct dead pixels by inteporlation
+
+	Parameters
+	----------
+	im : array_like
+		Image data (sinogram) as numpy array. 
+	
+	"""
+	# Compensate with line-by-line interpolation (better suited for large dead areas):
+	im[ im < 0.0 ] = 0.0
+	im_f = im.flatten()
+	val, x = (im_f == 0), lambda z: z.nonzero()[0]
+	im_f[val] = interp(x(val), x(~val), im_f[~val])
+	im = reshape(im_f, (im.shape[1], im.shape[0]), order='F').copy().T
+
+	return im 
+
+def _afterglow_correction (im):
+	"""Correct dead pixels by adaptive median filtering
+
+	Parameters
+	----------
+	im : array_like
+		Image data (sinogram) as numpy array. 
+	
+	"""
+
+	# Quick and dirty compensation for detector afterglow (it works well for isolated spots):
+	size_ct = 3
+	while ( ( float(amin(im)) <  0.0) and (size_ct <= 7) ):			
+		im_f = median_filter(im, size_ct)
+		im[im < 0.0] = im_f[im < 0.0]					
+		size_ct += 2
+
+	# Compensate negative values by replacing them with the average value of the image:		
+	if (float(amin(im)) <  finfo(float32).eps):			
+		rplc_value = sum(im [im > finfo(float32).eps]) / sum(im > finfo(float32).eps)		
+		im [im < finfo(float32).eps] = rplc_value
+
+	return im
+
 
 def flat_fielding (im, i, plan, flat_end, half_half, half_half_line, norm_sx, norm_dx):
 	"""Process a sinogram with conventional flat fielding plus reference normalization.
 
-    Parameters
-    ----------
-    im : array_like
-        Image data as numpy array
-    i : int
-        Index of the sinogram with reference to the height of a projection
+	Parameters
+	----------
+	im : array_like
+		Image data as numpy array
+	i : int
+		Index of the sinogram with reference to the height of a projection
 	plan : structure
 		Structure created by the extract_flatdark function (see extract_flatdark.py). 
 		This structure contains the flat/dark images acquired before the acquisition of 
@@ -62,17 +105,17 @@ def flat_fielding (im, i, plan, flat_end, half_half, half_half_line, norm_sx, no
 	norm_dx : int
 		Width in pixels of the right window to be consider for the normalization of the 
 		sinogram. This value has to be zero in the case of ROI-CT.
-       
-    Example (using h5py, tdf.py, tifffile.py)
-    --------------------------
+	   
+	Example (using h5py, tdf.py, tifffile.py)
+	--------------------------
 	>>> sino_idx = 512
-    >>> f    = getHDF5('dataset.h5', 'r')
+	>>> f    = getHDF5('dataset.h5', 'r')
 	>>> im   = tdf.read_sino(f['exchange/data'], sino_idx)
-    >>> plan = extract_flatdark(f_in, True, False, False, 'tomo', 'dark', 'flat', 'logfile.txt') 
+	>>> plan = extract_flatdark(f_in, True, False, False, 'tomo', 'dark', 'flat', 'logfile.txt') 
 	>>> im   = flat_fielding(im, sino_idx, plan, True, True, 900, 0, 0)  
-    >>> imsave('sino_corr.tif', im) 
+	>>> imsave('sino_corr.tif', im) 
 
-    """    
+	"""    
 	
 	try:
 
@@ -198,23 +241,18 @@ def flat_fielding (im, i, plan, flat_end, half_half, half_half_line, norm_sx, no
 				# Create flat and dark images replicating the i-th row the proper number of times:
 				tmp_flat = tile(im_flat[i,:], (im.shape[0],1)) 
 				tmp_dark = tile(im_dark[i,:], (im.shape[0],1)) 								
-			
+
+			# Dead pixel correction:
+			im = _dead_correction(im.astype(float32))
+			tmp_flat = _dead_correction(tmp_flat.astype(float32))
 						
 			# Do actual flat fielding:
-			im = ((im - tmp_dark) / ((tmp_flat - tmp_dark) * norm_coeff + finfo(float32).eps)).astype(float32)			
-			
-			# Quick and dirty compensation for detector afterglow:
-			size_ct = 3
-			while ( ( float(amin(im)) <  finfo(float32).eps) and (size_ct <= 7) ):			
-				im_f = median_filter(im, size_ct)
-				im [im < finfo(float32).eps] = im_f [im < finfo(float32).eps]								
-				size_ct += 2
-				
-			if (float(amin(im)) <  finfo(float32).eps):			
-				rplc_value = sum(im [im > finfo(float32).eps]) / sum(im > finfo(float32).eps)		
-				im [im < finfo(float32).eps] = rplc_value
+			im = ((im - tmp_dark) / ((tmp_flat - tmp_dark) * norm_coeff + finfo(float32).eps)).astype(float32)	
+	
+			# Correct for afteglow:
+			im = _afterglow_correction(im.astype(float32))
 
 	finally:
 
 		# Return pre-processed image:
-		return im
+		return im.astype(float32)

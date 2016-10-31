@@ -5,7 +5,7 @@
     <SchemaVersion>2.0</SchemaVersion>
     <ProjectGuid>397494a0-035b-4ad0-996a-2799fb86dfcf</ProjectGuid>
     <ProjectHome>.</ProjectHome>
-    <StartupFile>preview_reconstruct.py</StartupFile>
+    <StartupFile>preview_preprocessing.py</StartupFile>
     <SearchPath>
     </SearchPath>
     <WorkingDirectory>.</WorkingDirectory>
@@ -17,7 +17,7 @@
     </InterpreterArguments>
     <EnableNativeCodeDebugging>False</EnableNativeCodeDebugging>
     <InterpreterPath>C:\Users\Franz\Documents\Visual Studio 2012\Projects\STP-Gui\STP-Gui\bin\x64\Release\python\python-2.7.10.amd64\python.exe</InterpreterPath>
-    <CommandLineArguments>255 "C:\Temp\A_step_go.tdf" "C:\Temp\20161025160648945\20161025160821429" 3.14159265358979 -32 shepp-logan 1 False True True True True True 900 False False 0 0 0 False "muenchetal:7;1.8" False 0 FBP_CUDA 1 1 False linear8:-0.01;0.01 0:0:0:0 False 0 1E-10 1E-07 22 50 9 False 32 0 1799 True False 1 "C:\Temp\20161025160648945" "C:\Temp\20161025160648945\_rec_log_00.txt"</CommandLineArguments>
+    <CommandLineArguments>38 "C:\Temp\C_continuous.tdf" "C:\Temp\deringata.raw" 0 0 False False 624 False False 0 rivers:31;0 False "C:\Temp" "C:\Temp\_corr_log_00.txt"</CommandLineArguments>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
     <DebugSymbols>true</DebugSymbols>

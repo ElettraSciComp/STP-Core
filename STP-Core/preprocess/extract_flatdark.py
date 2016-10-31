@@ -32,7 +32,7 @@ from time import time, mktime
 from datetime import datetime
 
 from h5py import File as getHDF5
-from numpy import float32, ndarray
+from numpy import float32, ndarray, zeros
 
 from io.tdf import get_nr_projs, read_tomo
 
@@ -137,18 +137,18 @@ def _medianize(dset):
 def extract_flatdark(f_in, flat_end, logfilename):
 	"""Extract the flat and dark reference images to be used during the pre-processing step.
 
-    Parameters
-    ----------
-    f_in : HDF5 data structure
-        The data structure containing the flat and dark acquired images.
+	Parameters
+	----------
+	f_in : HDF5 data structure
+		The data structure containing the flat and dark acquired images.
 
-    flat_end : bool
-        Consider the flat/dark images acquired after the projections (if any).
+	flat_end : bool
+		Consider the flat/dark images acquired after the projections (if any).
 
 	logilename : string
 		Absolute file of a log text file where infos are appended.
-    
-    """
+	
+	"""
 	skip_flat = False
 	skip_flat_after = not flat_end
 	flat_onlyafter = False
@@ -211,15 +211,15 @@ def extract_flatdark(f_in, flat_end, logfilename):
 			log = open(logfilename,"a")
 			log.write(linesep + "\tDark field images (acquired before the projections) found.")	
 			log.close()
-	else:		
-		log = open(logfilename,"a")
-		if not flat_end:
-			skip_flat = True
-			log.write(linesep + "\tNo dark field images (acquired before the projections) found. 'Use after' flag not specified. Flat fielding skipped.")	
-		else:
-			flat_onlyafter = True
-			log.write(linesep + "\tNo dark field images (acquired before the projections) found.")	
-		log.close()	
+	#else:		
+	#	log = open(logfilename,"a")
+	#	if not flat_end:
+	#		skip_flat = True
+	#		log.write(linesep + "\tNo dark field images (acquired before the projections) found. 'Use after' flag not specified. Flat fielding skipped.")	
+	#	else:
+	#		flat_onlyafter = True
+	#		log.write(linesep + "\tNo dark field images (acquired before the projections) found.")	
+	#	log.close()	
 	
 
 
@@ -242,7 +242,7 @@ def extract_flatdark(f_in, flat_end, logfilename):
 			log.close()
 				
 	elif "/exchange/data_white" in f_in:
-		
+
 		# Get the flat files acquired before the projections:						
 		im_flat = _medianize_withprovenance(f_in['exchange/data_white'], f_in['provenance/detector_output'], tomoprefix, flatprefix, False)
 			
@@ -259,7 +259,9 @@ def extract_flatdark(f_in, flat_end, logfilename):
 		else:
 			log = open(logfilename,"a")
 			log.write(linesep + "\tFlat field images (acquired before the projections) found.")	
-			log.close()				
+			log.close()		
+			if not isinstance(im_dark, ndarray):
+				im_dark_after = zeros( im_flat.shape )		
 	else:
 		log = open(logfilename,"a")
 		if not flat_end:
@@ -411,7 +413,12 @@ def extract_flatdark(f_in, flat_end, logfilename):
 						# Maybe we'are in the odd situation where darks where acquired before the acquisition and 
 						# flat after. We can cheat the process by assuming that darks "after" are equal to darks "before":
 						im_dark_after = im_dark
-						skip_flat_after = False	
+						skip_flat_after = False
+						if not isinstance(im_dark, ndarray):
+							# Maybe we'are in the odd situation where darks where acquired before the acquisition and 
+							# flat after. We can cheat the process by assuming that darks "after" are equal to darks "before":
+							im_dark_after = zeros( im_flat_after.shape )
+
 					log.close()
 	
 			else:
