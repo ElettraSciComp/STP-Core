@@ -185,9 +185,6 @@ def muenchetal(im, args):
 	"""  
 	# Disable a warning:
 	simplefilter("ignore", ComplexWarning)
-	
-	im = imread('C:\\Temp\\sino_orig.tif')
-	im = im[::2, ::2]
 
 	# Get args:
 	wlevel, sigma = args.split(";")    
@@ -204,8 +201,6 @@ def muenchetal(im, args):
 	# FFT transform of horizontal frequency bands:
 	for i in range(1, wlevel + 1):  
 
-		imsave('C:\\Temp\\' + str(i).zfill(2) + '_orig.tif',  coeffs[i][1].astype(float32))
-
 		# Padding and windowing of input signal:
 		n_byte_align(coeffs[i][1], simd_alignment) 
 		siz = coeffs[i][1].shape
@@ -214,7 +209,6 @@ def muenchetal(im, args):
 		tmp = _windowing_lr(tmp, siz[1])
 		tmp = _windowing_lr(tmp.T, siz[0]).T	
 
-		imsave('C:\\Temp\\' + str(i).zfill(2) + '_pad_windowed.tif',  tmp.astype(float32))
 		###tmp = coeffs[i][1]		
 
 		# FFT:
@@ -234,7 +228,6 @@ def muenchetal(im, args):
 		## Crop image:
 		tmp = fcVflt[fcVflt.shape[0] / 4:(fcVflt.shape[0] / 4 + siz[0]), fcVflt.shape[1] / 4:(fcVflt.shape[1] / 4 + siz[1])]
 		####tmp= fcVflt
-		imsave('C:\\Temp\\' + str(i).zfill(2) + '_filtered_crop.tif',  tmp.astype(float32))
 
 		# Dump back coefficients:
 		cVHDtup = (coeffs[i][0], tmp, coeffs[i][2])          
@@ -242,7 +235,6 @@ def muenchetal(im, args):
 
 	# Get wavelet reconstruction:
 	im_f = real(waverec2(coeffsFlt, wname))
-	imsave('C:\\Temp\\output.tif', im_f.astype(float32))
 
 	# Return filtered image (an additional row and/or column might be present):
 	return im_f[0:im.shape[0],0:im.shape[1]].astype(float32)

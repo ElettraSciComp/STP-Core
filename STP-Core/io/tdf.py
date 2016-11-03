@@ -22,7 +22,7 @@
 
 #
 # Author: Francesco Brun
-# Last modified: July, 8th 2016
+# Last modified: November, 2nd 2016
 #
 
 # TO DO: 
@@ -37,7 +37,39 @@ import numpy as np
 import collections
 import xml.etree.ElementTree as et
 
+from numpy import isnan, isinf, nonzero, reshape, interp, float32, concatenate, zeros
+
 DATA_ORDER = 1 # 0 for faster read/write projections, 1 for faster read/write sinograms, everything else for the other direction
+
+def _remove_outliers ( im ):
+	"""Correct NaN pixels by inteporlation
+
+	Parameters
+	----------
+	im : array_like
+		Image data as numpy array. 
+	
+	"""
+	dt   = im.dtype
+	im_f = im.flatten().astype(float32)	
+
+	# Padding for better interpolation in case of outliers close to the margins:
+	im_f = concatenate((zeros(1),im_f), axis=0)
+	im_f = concatenate((im_f,zeros(1)), axis=0)	
+
+	# Remove NaNs:
+	val, x = isnan(im_f), lambda z: z.nonzero()[0]
+	im_f[val] = interp(x(val), x(~val), im_f[~val])
+
+	# Remove Infs:
+	val, x = isinf(im_f), lambda z: z.nonzero()[0]
+	im_f[val] = interp(x(val), x(~val), im_f[~val])
+
+	# Reshape:
+	im = reshape(im_f[1:-1], (im.shape[1], im.shape[0]), order='F').copy().T
+
+	# Return:
+	return im.astype(dt)
 
 def parse_metadata( f, xml_command ):
 	"""Fill the specified HDF5 file with metadata according to the DataExchange initiative.
@@ -174,11 +206,11 @@ def read_tomo( dataset, index ):
 	if (DATA_ORDER == 0):
 		out = np.empty((dataset.shape[1],dataset.shape[2]), dtype=dataset.dtype)
 		dataset.read_direct(out, np.s_[index,:,:])
-		return out
+		return _remove_outliers(out)
 	else: # (DATA_ORDER == 1):	
 		out = np.empty((dataset.shape[0],dataset.shape[2]), dtype=dataset.dtype)
 		dataset.read_direct(out, np.s_[:,index,:])
-		return out
+		return _remove_outliers(out)
 
 def read_sino( dataset, index ):
 	"""Extract the sinogram at the specified relative index from the HDF5 dataset.
@@ -201,11 +233,11 @@ def read_sino( dataset, index ):
 	if (DATA_ORDER == 0):
 		out = np.empty((dataset.shape[0],dataset.shape[2]), dtype=dataset.dtype)
 		dataset.read_direct(out, np.s_[:,index,:])		
-		return out
+		return _remove_outliers(out)
 	else: # (DATA_ORDER == 1):
 		out = np.empty((dataset.shape[1],dataset.shape[2]), dtype=dataset.dtype)
 		dataset.read_direct(out, np.s_[index,:,:])
-		return out
+		return _remove_outliers(out)
 
 def write_tomo( dataset, index, im ):
 	"""Modify the tomographic projection at the specified relative index from the HDF5 dataset 

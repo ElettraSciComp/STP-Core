@@ -726,7 +726,7 @@ def main(argv):
 	log.write(linesep + "\tInput file: %s" % (infile))	
 	log.write(linesep + "\tOutput path: %s" % (outpath))		
 	log.write(linesep + "\t--------------")		
-	log.write(linesep + "\tPreparing the working plan...")	
+	log.write(linesep + "\tPreparing the work plan...")	
 	log.close()	
 	
 	# Get correction plan and phase retrieval plan (if required):
@@ -789,7 +789,7 @@ def main(argv):
 		
 	# Log infos:
 	log = open(logfilename,"a")
-	log.write(linesep + "\tWorking plan prepared correctly.")	
+	log.write(linesep + "\tWork plan prepared correctly.")	
 	log.write(linesep + "\t--------------")
 	log.write(linesep + "\tPerforming reconstruction...")			
 	log.close()	

@@ -212,10 +212,10 @@ def main(argv):
 	if ((int_to >= num_sinos) or (int_to == -1)):
 		int_to = num_sinos - 1
 
-	# Prepare the working plan for flat and dark images:
+	# Prepare the work plan for flat and dark images:
 	log = open(logfilename,"a")
 	log.write(linesep + "\t--------------")
-	log.write(linesep + "\tPreparing the working plan...")				
+	log.write(linesep + "\tPreparing the work plan...")				
 	log.close()
 
 	# Extract flat and darks:
@@ -290,7 +290,7 @@ def main(argv):
 		
 	# Log infos:
 	log = open(logfilename,"a")
-	log.write(linesep + "\tWorking plan prepared correctly.")	
+	log.write(linesep + "\tWork plan prepared correctly.")	
 	log.write(linesep + "\t--------------")
 	log.write(linesep + "\tPerforming pre processing...")			
 	log.close()	

@@ -53,7 +53,6 @@ from postprocess.postprocess import postprocess
 
 from utils.padding import upperPowerOfTwo, padImage, padSmoothWidth
 from utils.caching import cache2plan, plan2cache
-from utils.replace_nan import replace_nan
 
 from tifffile import imread, imsave
 from h5py import File as getHDF5
@@ -268,10 +267,7 @@ def process(sino_idx, num_sinos, infile, outfile, preprocessing_required, corr_p
 											half_half_line/decim_factor, ext_fov).astype(float32)	
 				else:
 					test_im = ring_correction (test_im, ringrem, False, False, half_half, 
-											half_half_line/decim_factor, ext_fov).astype(float32)	
-			
-			# Replace NaNs:
-			test_im = replace_nan(test_im)
+											half_half_line/decim_factor, ext_fov).astype(float32)				
 
 			tmp_im[ct,:,:] = test_im
 	
@@ -338,8 +334,6 @@ def process(sino_idx, num_sinos, infile, outfile, preprocessing_required, corr_p
 				im = ring_correction (im, ringrem, False, False, half_half, 
 								half_half_line/decim_factor, ext_fov)
 
-	# Replace NaNs:
-	im = replace_nan(im)
 
 	# Additional ring removal before reconstruction:
 	#im = boinhaibel(im, '11;') 

@@ -40,7 +40,6 @@ from preprocess.extract_flatdark import extract_flatdark, _medianize
 
 from h5py import File as getHDF5
 from utils.caching import cache2plan, plan2cache
-from utils.replace_nan import replace_nan
 import io.tdf as tdf
 
 def main(argv):          
@@ -169,9 +168,6 @@ def main(argv):
 		im = ring_correction (im, ringrem, flat_end, corrplan['skip_flat_after'], half_half, half_half_line, ext_fov)		
 	else:
 		im = ring_correction (im, ringrem, False, False, half_half, half_half_line, ext_fov)						
-	
-	# Replace NaNs:
-	im = replace_nan(im)
 
 	# Write down reconstructed preview file (file name modified with metadata):		
 	im = im.astype(float32)

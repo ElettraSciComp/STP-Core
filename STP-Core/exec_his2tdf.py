@@ -395,7 +395,7 @@ def main(argv):
 		
 	# First time get the plan:
 	log = open(logfilename,"a")
-	log.write(os.linesep + "\tPreparing the working plan...")	
+	log.write(os.linesep + "\tPreparing the work plan...")	
 	log.close()
 			
 	# Get info from projection file:
@@ -469,7 +469,7 @@ def main(argv):
 	# Print out about plan preparation:
 	first_done = True
 	log = open(logfilename,"a")
-	log.write(os.linesep + "\tWorking plan prepared succesfully.")	
+	log.write(os.linesep + "\tWork plan prepared succesfully.")	
 	log.close()				
 		
 		

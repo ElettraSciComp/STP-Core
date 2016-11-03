@@ -329,7 +329,7 @@ def main(argv):
 	im = im[crop_top:im.shape[0]-crop_bottom,crop_left:im.shape[1]-crop_right]		
 				
 	log = open(logfilename,"a")
-	log.write(os.linesep + "\tPreparing the working plan...")	
+	log.write(os.linesep + "\tPreparing the work plan...")	
 	log.close()
 						
 	#dsetshape = (num_files,) + im.shape
@@ -388,7 +388,7 @@ def main(argv):
 
 	# Print out about plan preparation:
 	log = open(logfilename,"a")
-	log.write(os.linesep + "\tWorking plan prepared succesfully.")	
+	log.write(os.linesep + "\tWork plan prepared succesfully.")	
 	log.close()		
 		
 	# Get the files in inpath:

@@ -179,7 +179,7 @@ def main(argv):
 
 	# Prepare the plan:
 	log = open(logfilename,"a")
-	log.write(linesep + "\tPreparing the working plan...")	
+	log.write(linesep + "\tPreparing the work plan...")	
 	log.close()			
 
 	im = tdf.read_tomo(dset,0).astype(float32)	
