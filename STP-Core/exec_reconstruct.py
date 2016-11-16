@@ -29,7 +29,8 @@
 from sys import argv, exit
 from os import remove, sep, makedirs, linesep
 from os.path import basename, exists
-from numpy import finfo, copy, float32, double, amin, amax, tile, concatenate, log as nplog, arange, meshgrid, isscalar, ndarray
+from numpy import finfo, copy, float32, double, amin, amax, tile, concatenate, log as nplog
+from numpy import arange, meshgrid, isscalar, ndarray, pi, roll
 from time import time
 from multiprocessing import Process, Lock
 
@@ -54,7 +55,7 @@ from h5py import File as getHDF5
 import io.tdf as tdf
 
 
-def reconstruct(im, angles, offset, logtransform, param1, circle, scale, pad, method, 
+def reconstruct(im, angles, offset, logtransform, param1, circle, scale, pad, method, rolling, roll_shift,
 				zerone_mode, dset_min, dset_max, decim_factor, downsc_factor, corr_offset):
 	"""Reconstruct a sinogram with FBP algorithm (from ASTRA toolbox).
 
@@ -129,7 +130,18 @@ def reconstruct(im, angles, offset, logtransform, param1, circle, scale, pad, me
 	
 	# Downscale projections (without pixel averaging):
 	if downsc_factor > 1:
-		im_f = im_f[:,::downsc_factor]			
+		im_f = im_f[:,::downsc_factor]	
+		
+	# Sinogram rolling (if required).  It doesn't make sense in limited angle tomography, so check if 180 or 360:
+	if ((rolling == True) and (roll_shift > 0)):
+		if ( (angles - pi) < finfo(float32).eps ):
+			# Flip the last rows:
+			im_f[-roll_shift:,:] = im_f[-roll_shift:,::-1]
+			# Now roll the sinogram:
+			im_f = roll(im_f, roll_shift, axis=0)
+		elif ((angles - pi*2.0) < finfo(float32).eps):	
+			# Only roll the sinogram:
+			im_f = roll(im_f, roll_shift, axis=0)		
 			
 	# Scale image to [0,1] range (if required):
 	if (zerone_mode):
@@ -180,7 +192,7 @@ def reconstruct(im, angles, offset, logtransform, param1, circle, scale, pad, me
 	# Return output:
 	return im_f.astype(float32)
 
-def reconstruct_gridrec(im1, im2, angles, offset, logtransform, param1, circle, scale, pad,  
+def reconstruct_gridrec(im1, im2, angles, offset, logtransform, param1, circle, scale, pad, rolling, roll_shift,
 				zerone_mode, dset_min, dset_max, decim_factor, downsc_factor, corr_offset):
 	"""Reconstruct a sinogram with FBP algorithm (from ASTRA toolbox).
 
@@ -269,7 +281,21 @@ def reconstruct_gridrec(im1, im2, angles, offset, logtransform, param1, circle, 
 	# Downscale projections (without pixel averaging):
 	if downsc_factor > 1:
 		im_f1 = im_f1[:,::downsc_factor]			
-		im_f2 = im_f2[:,::downsc_factor]			
+		im_f2 = im_f2[:,::downsc_factor]	
+
+	# Sinogram rolling (if required).  It doesn't make sense in limited angle tomography, so check if 180 or 360:
+	if ((rolling == True) and (roll_shift > 0)):
+		if ( (angles - pi) < finfo(float32).eps ):
+			# Flip the last rows:
+			im_f1[-roll_shift:,:] = im_f1[-roll_shift:,::-1]
+			im_f2[-roll_shift:,:] = im_f2[-roll_shift:,::-1]
+			# Now roll the sinogram:
+			im_f1 = roll(im_f1, roll_shift, axis=0)
+			im_f2 = roll(im_f2, roll_shift, axis=0)
+		elif ((angles - pi*2.0) < finfo(float32).eps):	
+			# Only roll the sinogram:
+			im_f1 = roll(im_f1, roll_shift, axis=0)		
+			im_f2 = roll(im_f2, roll_shift, axis=0)			
 			
 	# Scale image to [0,1] range (if required):
 	if (zerone_mode):
@@ -353,7 +379,7 @@ def write_log_gridrec(lock, fname1, fname2, logfilename, cputime, iotime):
 def process_gridrec(lock, int_from, int_to, num_sinos, infile, outpath, preprocessing_required, skipflat, corr_plan, 
 			norm_sx, norm_dx, flat_end, half_half, 
 			half_half_line, ext_fov, ext_fov_rot_right, ext_fov_overlap, ringrem, angles, angles_projfrom, angles_projto,
-			offset, logtransform, param1, circle, scale, pad, zerone_mode, dset_min, dset_max, decim_factor, 
+			offset, logtransform, param1, circle, scale, pad, rolling, roll_shift, zerone_mode, dset_min, dset_max, decim_factor, 
 			downsc_factor, corr_offset,	postprocess_required, convert_opt, crop_opt, dynamic_ff, EFF, filtEFF, im_dark, 
 			outprefix, logfilename):
 	"""To do...
@@ -410,7 +436,7 @@ def process_gridrec(lock, int_from, int_to, num_sinos, infile, outpath, preproce
 		
 
 		# Actual reconstruction:
-		[im1, im2] = reconstruct_gridrec(im1, im2, angles, offset, logtransform, param1, circle, scale, pad,  
+		[im1, im2] = reconstruct_gridrec(im1, im2, angles, offset, logtransform, param1, circle, scale, pad, rolling, roll_shift,
 						zerone_mode, dset_min, dset_max, decim_factor, downsc_factor, corr_offset)					
 
 		# Appy post-processing (if required):
@@ -450,7 +476,7 @@ def process_gridrec(lock, int_from, int_to, num_sinos, infile, outpath, preproce
 def process(lock, int_from, int_to, num_sinos, infile, outpath, preprocessing_required, skipflat, corr_plan, norm_sx, norm_dx, 
 			flat_end, half_half, 
 			half_half_line, ext_fov, ext_fov_rot_right, ext_fov_overlap, ringrem, angles, angles_projfrom, angles_projto,
-            offset, logtransform, param1, circle, scale, pad, method, zerone_mode, dset_min, dset_max, decim_factor, 
+            offset, logtransform, param1, circle, scale, pad, method, rolling, roll_shift, zerone_mode, dset_min, dset_max, decim_factor, 
 			downsc_factor, corr_offset,	postprocess_required, convert_opt, crop_opt, dynamic_ff, EFF, filtEFF, im_dark, 
 			outprefix, logfilename):
 	"""To do...
@@ -548,7 +574,7 @@ def process(lock, int_from, int_to, num_sinos, infile, outpath, preprocessing_re
 		
 
 		# Actual reconstruction:
-		im = reconstruct(im, angles, offset, logtransform, param1, circle, scale, pad, method, 
+		im = reconstruct(im, angles, offset, logtransform, param1, circle, scale, pad, method, rolling, roll_shift,
 						zerone_mode, dset_min, dset_max, decim_factor, downsc_factor, corr_offset).astype(float32)			
 		
 		# Apply post-processing (if required):
@@ -666,10 +692,13 @@ def main(argv):
 	angles_projfrom = int(argv[31])	
 	angles_projto = int(argv[32])
 
-	dynamic_ff 	= True if argv[33] == "True" else False
+	rolling = True if argv[33] == "True" else False
+	roll_shift = int(argv[34])
+
+	dynamic_ff 	= True if argv[35] == "True" else False
 	
-	nr_threads = int(argv[34])	
-	logfilename = argv[35]	
+	nr_threads = int(argv[36])	
+	logfilename = argv[37]	
 	process_id = int(logfilename[-6:-4])
 	
 	# Check prefixes and path:
@@ -806,6 +835,7 @@ def main(argv):
 						corrplan, norm_sx, norm_dx, flat_end, half_half, half_half_line, ext_fov, ext_fov_rot_right, 
 						ext_fov_overlap, ringrem, 
 						angles, angles_projfrom, angles_projto, offset, logtrsf, param1, circle, scale, overpad, 
+                        rolling, roll_shift,
 						zerone_mode, dset_min, dset_max, decim_factor, downsc_factor, corr_offset, 
 						postprocess_required, convert_opt, crop_opt, dynamic_ff, EFF, filtEFF, im_dark, outprefix, 
 						logfilename )).start()
@@ -814,7 +844,8 @@ def main(argv):
 						corrplan, norm_sx, 
 						norm_dx, flat_end, half_half, half_half_line, ext_fov, ext_fov_rot_right, ext_fov_overlap, ringrem, 
 						angles, angles_projfrom, angles_projto, offset, logtrsf, param1, circle, scale, overpad, 
-						reconmethod, zerone_mode, dset_min, dset_max, decim_factor, downsc_factor, corr_offset, 
+						reconmethod, rolling, roll_shift,
+                        zerone_mode, dset_min, dset_max, decim_factor, downsc_factor, corr_offset, 
 						postprocess_required, convert_opt, crop_opt, dynamic_ff, EFF, filtEFF, im_dark, outprefix, 
 						logfilename )).start()
 
@@ -824,13 +855,14 @@ def main(argv):
 	#	process_gridrec(lock, start, end, num_sinos, infile, outpath, preprocessing_required, skipflat, corrplan, norm_sx, 
 	#					norm_dx, flat_end, half_half, half_half_line, ext_fov, ext_fov_rot_right, ext_fov_overlap, ringrem, 
 	#					angles, angles_projfrom, angles_projto, offset, logtrsf, param1, circle, scale, overpad, 
+	#                   rolling, roll_shift,
 	#					zerone_mode, dset_min, dset_max, decim_factor, downsc_factor, corr_offset, 
 	#					postprocess_required, convert_opt, crop_opt, dynamic_ff, EFF, filtEFF, im_dark, outprefix, logfilename)
 	#else:
 	#	process(lock, start, end, num_sinos, infile, outpath, preprocessing_required, skipflat, corrplan, norm_sx, 
 	#					norm_dx, flat_end, half_half, half_half_line, ext_fov, ext_fov_rot_right, ext_fov_overlap, ringrem, 
 	#					angles, angles_projfrom, angles_projto, offset, logtrsf, param1, circle, scale, overpad, 
-	#					reconmethod, zerone_mode, dset_min, dset_max, decim_factor, downsc_factor, corr_offset, 
+	#					reconmethod, rolling, roll_shift, zerone_mode, dset_min, dset_max, decim_factor, downsc_factor, corr_offset, 
 	#					postprocess_required, convert_opt, crop_opt, dynamic_ff, EFF, filtEFF, im_dark, outprefix, logfilename)
 
 	# Example:

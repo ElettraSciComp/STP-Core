@@ -131,8 +131,7 @@ def _medianize(dset):
 		im = im / num_imgs
 
 		# Reshape output and return:
-		return im.astype(float32)  
-		
+		return im.astype(float32)  	
 
 def extract_flatdark(f_in, flat_end, logfilename):
 	"""Extract the flat and dark reference images to be used during the pre-processing step.

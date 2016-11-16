@@ -77,7 +77,6 @@ def _afterglow_correction (im):
 
 	return im
 
-
 def flat_fielding (im, i, plan, flat_end, half_half, half_half_line, norm_sx, norm_dx):
 	"""Process a sinogram with conventional flat fielding plus reference normalization.
 

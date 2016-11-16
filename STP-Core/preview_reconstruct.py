@@ -29,8 +29,8 @@
 from sys import argv, exit
 from os import remove, sep, linesep, listdir
 from os.path import exists, dirname, basename, splitext
-from numpy import array, finfo, copy, float32, double, amin, amax, tile, concatenate, asarray, isscalar
-from numpy import empty, reshape, log as nplog, arange, squeeze, fromfile, ndarray, where, meshgrid
+from numpy import array, finfo, copy, float32, double, amin, amax, tile, concatenate, asarray, isscalar, pi
+from numpy import empty, reshape, log as nplog, arange, squeeze, fromfile, ndarray, where, meshgrid, roll
 from time import time
 from multiprocessing import Process, Array
 
@@ -60,7 +60,7 @@ import io.tdf as tdf
 
 
 def reconstruct(im, angles, offset, logtransform, recpar, circle, scale, pad, method, 
-				zerone_mode, dset_min, dset_max, corr_offset):
+				zerone_mode, dset_min, dset_max, corr_offset, rolling, roll_shift):
 	"""Reconstruct a sinogram with FBP algorithm (from ASTRA toolbox).
 
 	Parameters
@@ -105,8 +105,19 @@ def reconstruct(im, angles, offset, logtransform, recpar, circle, scale, pad, me
 			
 			tmp = im[:,im.shape[1] - 1] # Get last column
 			tmp = tile(tmp, (abs(offset),1)) # Replicate the last column the right number of times
-			im = concatenate((im,tmp.T), axis=1) # Concatenate tmp after the image	
-			
+			im = concatenate((im,tmp.T), axis=1) # Concatenate tmp after the image
+
+	# Sinogram rolling (if required).  It doesn't make sense in limited angle tomography, so check if 180 or 360:
+	if ((rolling == True) and (roll_shift > 0)):
+		if ( (angles - pi) < finfo(float32).eps ):
+			# Flip the last rows:
+			im[-roll_shift:,:] = im[-roll_shift:,::-1]
+			# Now roll the sinogram:
+			im = roll(im, roll_shift, axis=0)
+		elif ((angles - pi*2.0) < finfo(float32).eps):	
+			# Only roll the sinogram:
+			im = roll(im, roll_shift, axis=0)
+
 	# Scale image to [0,1] range (if required):
 	if (zerone_mode):
 		
@@ -129,7 +140,7 @@ def reconstruct(im, angles, offset, logtransform, recpar, circle, scale, pad, me
 
 		dim_o = im.shape[1]		
 		n_pad = im.shape[1] + im.shape[1] / 2					
-		marg  = (n_pad - dim_o) / 2	
+		marg = (n_pad - dim_o) / 2	
 	
 		# Pad image:
 		im = padSmoothWidth(im, n_pad)		
@@ -176,16 +187,17 @@ def reconstruct(im, angles, offset, logtransform, recpar, circle, scale, pad, me
 def process(sino_idx, num_sinos, infile, outfile, preprocessing_required, corr_plan, skipflat, norm_sx, norm_dx, flat_end, half_half, 
 			half_half_line, ext_fov, ext_fov_rot_right, ext_fov_overlap, ringrem, phaseretrieval_required, phrtmethod, phrt_param1,
 			phrt_param2, energy, distance, pixsize, phrtpad, approx_win, angles, angles_projfrom, angles_projto,
-			offset, logtransform, recpar, circle, scale, pad, method, 
+			offset, logtransform, recpar, circle, scale, pad, method, rolling, roll_shift,
 			zerone_mode, dset_min, dset_max, decim_factor, downsc_factor, corr_offset, postprocess_required, convert_opt, 
 			crop_opt, dynamic_ff, EFF, filtEFF, im_dark, nr_threads, logfilename):
 	"""To do...
 
 	"""
-	# Perform reconstruction (on-the-fly preprocessing and phase retrieval, if required):
+	# Perform reconstruction (on-the-fly preprocessing and phase retrieval, if
+	# required):
 	if (phaseretrieval_required):
 		
-		# In this case a bunch of sinograms is loaded into memory:		
+		# In this case a bunch of sinograms is loaded into memory:
 
 		#
 		# Load the temporary data structure reading the input TDF file.
@@ -199,16 +211,17 @@ def process(sino_idx, num_sinos, infile, outfile, preprocessing_required, corr_p
 		else: 
 			dset = f_in['exchange/data']
 		
-		# Downscaling and decimation factors considered when determining the approximation window:
-		zrange = arange(sino_idx - approx_win*downsc_factor/2, sino_idx + approx_win*downsc_factor/2, downsc_factor)
-		zrange = zrange[ (zrange >= 0) ]
-		zrange = zrange[ (zrange < num_sinos) ]
+		# Downscaling and decimation factors considered when determining the
+		# approximation window:
+		zrange = arange(sino_idx - approx_win * downsc_factor / 2, sino_idx + approx_win * downsc_factor / 2, downsc_factor)
+		zrange = zrange[(zrange >= 0)]
+		zrange = zrange[(zrange < num_sinos)]
 		approx_win = zrange.shape[0]
 		
 		# Approximation window cannot be odd:
 		if (approx_win % 2 == 1):
-			approx_win = approx_win-1 
-			zrange     = zrange[0:approx_win]
+			approx_win = approx_win - 1 
+			zrange = zrange[0:approx_win]
 		
 		# Read one sinogram to get the proper dimensions:
 		test_im = tdf.read_sino(dset, zrange[0]).astype(float32)	
@@ -216,27 +229,28 @@ def process(sino_idx, num_sinos, infile, outfile, preprocessing_required, corr_p
 		# Apply projection removal (if required):
 		test_im = test_im[angles_projfrom:angles_projto, :]
 
-		# Apply decimation and downscaling (if required):	
+		# Apply decimation and downscaling (if required):
 		test_im = test_im[::decim_factor, ::downsc_factor]
 
-		# Perform the pre-processing of the first sinogram to get the right dimension:
+		# Perform the pre-processing of the first sinogram to get the right
+		# dimension:
 		if (preprocessing_required):
 			if not skipflat:			
 				if dynamic_ff:
 					# Dynamic flat fielding with downsampling = 2:
-					test_im = dynamic_flat_fielding(test_im, zrange[0]/downsc_factor, EFF, filtEFF, 2, im_dark, norm_sx, norm_dx)
+					test_im = dynamic_flat_fielding(test_im, zrange[0] / downsc_factor, EFF, filtEFF, 2, im_dark, norm_sx, norm_dx)
 				else:
-					test_im = flat_fielding(test_im, zrange[0]/downsc_factor, corr_plan, flat_end, half_half, 
-											half_half_line/decim_factor, norm_sx, norm_dx).astype(float32)
-			test_im = extfov_correction(test_im, ext_fov, ext_fov_rot_right, ext_fov_overlap/downsc_factor).astype(float32)			
+					test_im = flat_fielding(test_im, zrange[0] / downsc_factor, corr_plan, flat_end, half_half, 
+											half_half_line / decim_factor, norm_sx, norm_dx).astype(float32)
+			test_im = extfov_correction(test_im, ext_fov, ext_fov_rot_right, ext_fov_overlap / downsc_factor).astype(float32)			
 			if not skipflat and not dynamic_ff:
 				test_im = ring_correction(test_im, ringrem, flat_end, corr_plan['skip_flat_after'], half_half, 
-											half_half_line/decim_factor, ext_fov).astype(float32)	
+											half_half_line / decim_factor, ext_fov).astype(float32)	
 			else:
 				test_im = ring_correction(test_im, ringrem, False, False, half_half, 
-											half_half_line/decim_factor, ext_fov).astype(float32)	
+											half_half_line / decim_factor, ext_fov).astype(float32)	
 		
-		# Now we can allocate memory for the bunch of slices:		
+		# Now we can allocate memory for the bunch of slices:
 		tmp_im = empty((approx_win, test_im.shape[0], test_im.shape[1]), dtype=float32)
 		tmp_im[0,:,:] = test_im
 
@@ -249,7 +263,7 @@ def process(sino_idx, num_sinos, infile, outfile, preprocessing_required, corr_p
 			# Apply projection removal (if required):
 			test_im = test_im[angles_projfrom:angles_projto, :]
 
-			# Apply decimation and downscaling (if required):	
+			# Apply decimation and downscaling (if required):
 			test_im = test_im[::decim_factor, ::downsc_factor]
 			
 			# Perform the pre-processing for each sinogram of the bunch:
@@ -257,17 +271,17 @@ def process(sino_idx, num_sinos, infile, outfile, preprocessing_required, corr_p
 				if not skipflat:
 					if dynamic_ff:
 						# Dynamic flat fielding with downsampling = 2:
-						test_im = dynamic_flat_fielding(test_im, zrange[ct]/downsc_factor, EFF, filtEFF, 2, im_dark, norm_sx, norm_dx)
+						test_im = dynamic_flat_fielding(test_im, zrange[ct] / downsc_factor, EFF, filtEFF, 2, im_dark, norm_sx, norm_dx)
 					else:
-						test_im = flat_fielding (test_im, zrange[ct]/downsc_factor, corr_plan, flat_end, half_half, 
-											half_half_line/decim_factor, norm_sx, norm_dx).astype(float32)	
-				test_im = extfov_correction (test_im, ext_fov, ext_fov_rot_right, ext_fov_overlap/downsc_factor).astype(float32)
+						test_im = flat_fielding(test_im, zrange[ct] / downsc_factor, corr_plan, flat_end, half_half, 
+											half_half_line / decim_factor, norm_sx, norm_dx).astype(float32)	
+				test_im = extfov_correction(test_im, ext_fov, ext_fov_rot_right, ext_fov_overlap / downsc_factor).astype(float32)
 				if not skipflat and not dynamic_ff:
-					test_im = ring_correction (test_im, ringrem, flat_end, corr_plan['skip_flat_after'], half_half, 
-											half_half_line/decim_factor, ext_fov).astype(float32)	
+					test_im = ring_correction(test_im, ringrem, flat_end, corr_plan['skip_flat_after'], half_half, 
+											half_half_line / decim_factor, ext_fov).astype(float32)	
 				else:
-					test_im = ring_correction (test_im, ringrem, False, False, half_half, 
-											half_half_line/decim_factor, ext_fov).astype(float32)				
+					test_im = ring_correction(test_im, ringrem, False, False, half_half, 
+											half_half_line / decim_factor, ext_fov).astype(float32)				
 
 			tmp_im[ct,:,:] = test_im
 	
@@ -280,13 +294,14 @@ def process(sino_idx, num_sinos, infile, outfile, preprocessing_required, corr_p
 		# Perform phase retrieval:
 		#
 
-		# Prepare the plan:	
+		# Prepare the plan:
 		if (phrtmethod == 0):
 			# Paganin's:
-			phrtplan = tiehom_plan (tmp_im[:,0,:], phrt_param1, phrt_param2, energy, distance, pixsize*downsc_factor, phrtpad)
+			phrtplan = tiehom_plan(tmp_im[:,0,:], phrt_param1, phrt_param2, energy, distance, pixsize * downsc_factor, phrtpad)
 		else:
-			phrtplan = phrt_plan (tmp_im[:,0,:], energy, distance, pixsize*downsc_factor, phrt_param2, phrt_param1, phrtmethod, phrtpad)
-			#phrtplan = prepare_plan (tmp_im[:,0,:], beta, delta, energy, distance, pixsize*downsc_factor, padding=phrtpad)
+			phrtplan = phrt_plan(tmp_im[:,0,:], energy, distance, pixsize * downsc_factor, phrt_param2, phrt_param1, phrtmethod, phrtpad)
+			#phrtplan = prepare_plan (tmp_im[:,0,:], beta, delta, energy, distance,
+			#pixsize*downsc_factor, padding=phrtpad)
 		
 		# Process each projection (whose height depends on the size of the bunch):
 		for ct in range(0, tmp_im.shape[1]):
@@ -313,9 +328,9 @@ def process(sino_idx, num_sinos, infile, outfile, preprocessing_required, corr_p
 		# Apply projection removal (if required):
 		im = im[angles_projfrom:angles_projto, :]
 
-		# Apply decimation and downscaling (if required):	
+		# Apply decimation and downscaling (if required):
 		im = im[::decim_factor,::downsc_factor]
-		sino_idx = sino_idx/downsc_factor	
+		sino_idx = sino_idx / downsc_factor	
 			
 		# Perform the preprocessing of the sinogram (if required):
 		if (preprocessing_required):
@@ -324,27 +339,27 @@ def process(sino_idx, num_sinos, infile, outfile, preprocessing_required, corr_p
 					# Dynamic flat fielding with downsampling = 2:
 					im = dynamic_flat_fielding(im, sino_idx, EFF, filtEFF, 2, im_dark, norm_sx, norm_dx)
 				else:
-					im = flat_fielding (im, sino_idx, corr_plan, flat_end, half_half, half_half_line/decim_factor, 
+					im = flat_fielding(im, sino_idx, corr_plan, flat_end, half_half, half_half_line / decim_factor, 
 								norm_sx, norm_dx).astype(float32)		
-			im = extfov_correction (im, ext_fov, ext_fov_rot_right, ext_fov_overlap)
+			im = extfov_correction(im, ext_fov, ext_fov_rot_right, ext_fov_overlap)
 			if not skipflat and not dynamic_ff:
-				im = ring_correction (im, ringrem, flat_end, corr_plan['skip_flat_after'], half_half, 
-								half_half_line/decim_factor, ext_fov)
+				im = ring_correction(im, ringrem, flat_end, corr_plan['skip_flat_after'], half_half, 
+								half_half_line / decim_factor, ext_fov)
 			else:
-				im = ring_correction (im, ringrem, False, False, half_half, 
-								half_half_line/decim_factor, ext_fov)
+				im = ring_correction(im, ringrem, False, False, half_half, 
+								half_half_line / decim_factor, ext_fov)
 
 
 	# Additional ring removal before reconstruction:
-	#im = boinhaibel(im, '11;') 
-	#im = munchetal(im, '5;1.8')  
-	#im = rivers(im, '13;')   
+	#im = boinhaibel(im, '11;')
+	#im = munchetal(im, '5;1.8')
+	#im = rivers(im, '13;')
 	#im = raven(im, '11;0.8')
 	#im = oimoen(im, '51;51')
 
 	# Actual reconstruction:
-	im = reconstruct(im, angles, offset/downsc_factor, logtransform, recpar, circle, scale, pad, method, 
-					zerone_mode, dset_min, dset_max, corr_offset).astype(float32)	
+	im = reconstruct(im, angles, offset / downsc_factor, logtransform, recpar, circle, scale, pad, method, 
+					zerone_mode, dset_min, dset_max, corr_offset, rolling, roll_shift).astype(float32)	
 
 	# Apply post-processing (if required):
 	if postprocess_required:
@@ -359,16 +374,16 @@ def process(sino_idx, num_sinos, infile, outfile, preprocessing_required, corr_p
 				rang = arange(-siz / 2,siz / 2)
 			x,y = meshgrid(rang,rang)
 			z = x ** 2 + y ** 2
-			a = (z < (siz / 2 - int(round(abs(offset)/downsc_factor)) ) ** 2)
+			a = (z < (siz / 2 - int(round(abs(offset) / downsc_factor))) ** 2)
 			im = im * a			
 
-	# Write down reconstructed preview file (file name modified with metadata):		
+	# Write down reconstructed preview file (file name modified with metadata):
 	im = im.astype(float32)
-	outfile = outfile + '_' + str(im.shape[1]) + 'x' + str(im.shape[0]) + '_' + str( amin(im)) + '$' + str( amax(im) )	
+	outfile = outfile + '_' + str(im.shape[1]) + 'x' + str(im.shape[0]) + '_' + str(amin(im)) + '$' + str(amax(im))	
 	im.tofile(outfile)	
 								
-	#print "With %d thread(s): [%0.3f sec, %0.3f sec, %0.3f sec]." % (nr_threads, t1-t0, t2-t1, t3-t2)	
-
+	#print "With %d thread(s): [%0.3f sec, %0.3f sec, %0.3f sec]." % (nr_threads,
+	#t1-t0, t2-t1, t3-t2)
 
 def main(argv):          
 	"""To do...
@@ -396,7 +411,7 @@ def main(argv):
 	angles = float(argv[3])	
 	offset = float(argv[4])
 	recpar = argv[5]	
-	scale  = int(float(argv[6]))
+	scale = int(float(argv[6]))
 	
 	overpad = True if argv[7] == "True" else False
 	logtrsf = True if argv[8] == "True" else False
@@ -446,25 +461,28 @@ def main(argv):
 	# Parameters for on-the-fly phase retrieval:
 	phaseretrieval_required = True if argv[29] == "True" else False		
 	phrtmethod = int(argv[30])
-	phrt_param1 = double(argv[31])   # param1( e.g. regParam, or beta)
-	phrt_param2 = double(argv[32])   # param2( e.g. thresh or delta)
+	phrt_param1 = double(argv[31])   # param1( e.g.  regParam, or beta)
+	phrt_param2 = double(argv[32])   # param2( e.g.  thresh or delta)
 	energy = double(argv[33])
 	distance = double(argv[34])    
-	pixsize = double(argv[35]) / 1000.0 # pixsixe from micron to mm:	
+	pixsize = double(argv[35]) / 1000.0 # pixsixe from micron to mm:
 	phrtpad = True if argv[36] == "True" else False
 	approx_win = int(argv[37])	
 
 	angles_projfrom = int(argv[38])	
 	angles_projto = int(argv[39])	
 
-	preprocessingplan_fromcache = True if argv[40] == "True" else False
-	dynamic_ff 	= True if argv[41] == "True" else False
+	rolling = True if argv[40] == "True" else False
+	roll_shift = int(argv[41])
 
-	nr_threads = int(argv[42])	
-	tmppath = argv[43]	
+	preprocessingplan_fromcache = True if argv[42] == "True" else False
+	dynamic_ff = True if argv[43] == "True" else False
+
+	nr_threads = int(argv[44])	
+	tmppath = argv[45]	
 	if not tmppath.endswith(sep): tmppath += sep
 		
-	logfilename = argv[44]		
+	logfilename = argv[46]		
 			
 	# Open the HDF5 file:
 	f_in = getHDF5(infile, 'r')
@@ -506,20 +524,21 @@ def main(argv):
 	filtEFF = 0
 	if (preprocessing_required):
 		if not dynamic_ff:
-			# Load flat fielding plan either from cache (if required) or from TDF file and cache it for faster re-use:
+			# Load flat fielding plan either from cache (if required) or from TDF file
+			# and cache it for faster re-use:
 			if (preprocessingplan_fromcache):
 				try:
 					corrplan = cache2plan(infile, tmppath)
 				except Exception as e:
 					#print "Error(s) when reading from cache"
 					corrplan = extract_flatdark(f_in, flat_end, logfilename)
-					if (isscalar(corrplan['im_flat']) and isscalar(corrplan['im_flat_after']) ):
+					if (isscalar(corrplan['im_flat']) and isscalar(corrplan['im_flat_after'])):
 						skipflat = True
 					else:
 						plan2cache(corrplan, infile, tmppath)		
 			else:			
 				corrplan = extract_flatdark(f_in, flat_end, logfilename)		
-				if (isscalar(corrplan['im_flat']) and isscalar(corrplan['im_flat_after']) ):
+				if (isscalar(corrplan['im_flat']) and isscalar(corrplan['im_flat_after'])):
 					skipflat = True
 				else:
 					plan2cache(corrplan, infile, tmppath)	
@@ -544,7 +563,7 @@ def main(argv):
 					else:										
 						skipdark = True
 				else:
-					skipflat = True # Nothing to do in this case			
+					skipflat = True # Nothing to do in this case
 			else: 
 				if "/exchange/data_white" in f_in:
 					flat_dset = f_in['/exchange/data_white']
@@ -555,7 +574,7 @@ def main(argv):
 				else:
 					skipflat = True # Nothing to do in this case
 	
-			# Prepare plan for dynamic flat fielding with 16 repetitions:		
+			# Prepare plan for dynamic flat fielding with 16 repetitions:
 			if not skipflat:
 				EFF, filtEFF = dff_prepare_plan(flat_dset, 16, im_dark)
 
@@ -566,17 +585,21 @@ def main(argv):
 			
 	f_in.close()			
 
-	# Run computation:	
-	process( sino_idx, num_sinos, infile, outfile, preprocessing_required, corrplan, skipflat, norm_sx, 
+	# Run computation:
+	process(sino_idx, num_sinos, infile, outfile, preprocessing_required, corrplan, skipflat, norm_sx, 
 				norm_dx, flat_end, half_half, half_half_line, ext_fov, ext_fov_rot_right, ext_fov_overlap, ringrem, 
 				phaseretrieval_required, phrtmethod, phrt_param1, phrt_param2, energy, distance, pixsize, phrtpad, approx_win, angles, 
 				angles_projfrom, angles_projto, offset, 
-				logtrsf, recpar, circle, scale, overpad, reconmethod, zerone_mode, dset_min, dset_max, decim_factor, 
-				downsc_factor, corr_offset, postprocess_required, convert_opt, crop_opt, dynamic_ff, EFF, filtEFF, im_dark, nr_threads, logfilename )		
+				logtrsf, recpar, circle, scale, overpad, reconmethod, 
+                rolling, roll_shift,
+                zerone_mode, dset_min, dset_max, decim_factor, 
+				downsc_factor, corr_offset, postprocess_required, convert_opt, crop_opt, dynamic_ff, EFF, filtEFF, im_dark, nr_threads, logfilename)		
 
 	# Sample:
-	# 311 C:\Temp\BrunGeorgos.tdf C:\Temp\BrunGeorgos.raw 3.1416 -31.0 shepp-logan 1.0 False False True True True True 5 False False 100 0 0 False rivers:11;0 False 0.0 FBP_CUDA 1 1 False - - True 5 1.0 1000.0 22 150 2.2 True 16 0 1799 True True 2 C:\Temp\StupidFolder C:\Temp\log_00.txt
-
+	# 311 C:\Temp\BrunGeorgos.tdf C:\Temp\BrunGeorgos.raw 3.1416 -31.0 shepp-logan
+	# 1.0 False False True True True True 5 False False 100 0 0 False rivers:11;0
+	# False 0.0 FBP_CUDA 1 1 False - - True 5 1.0 1000.0 22 150 2.2 True 16 0 1799
+	# True True 2 C:\Temp\StupidFolder C:\Temp\log_00.txt
 
 
 if __name__ == "__main__":

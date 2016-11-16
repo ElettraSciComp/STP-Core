@@ -37,9 +37,6 @@ from pyfftw.interfaces.numpy_fft import fft2, ifft2
 from pyfftw.interfaces.cache import enable as pyfftw_cache_enable, disable as pyfftw_cache_disable
 from pyfftw.interfaces.cache import set_keepalive_time as pyfftw_set_keepalive_time
 
-from tifffile import imread, imsave # only for debug
-
-
 
 def usecorrelation( im1, im2 ):
 	"""Assess the offset (to be used for e.g. the assessment of the center of rotation or the 
