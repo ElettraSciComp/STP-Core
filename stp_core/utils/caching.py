@@ -39,8 +39,8 @@ def cache2plan(infile, cachepath):
     infile : string
 		Absolute path of the input TDF dataset.
 					
-	Return value
-	----------
+	Returns
+	-------
 	A structure with flat/dark images and related flags.
 	
     """
@@ -93,8 +93,8 @@ def plan2cache(corr_plan, infile, cachepath):
 	corr_plan : structure
 		The plan with flat/dark images and flags.
 					
-	Return value
-	----------
+	Returns
+	-------
 	No return value.
 	
     """

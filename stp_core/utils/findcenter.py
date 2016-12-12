@@ -50,8 +50,8 @@ def usecorrelation( im1, im2 ):
 	im2 : array_like
 		Image data as numpy array.
 			
-	Return value
-	----------
+	Returns
+	-------
 	An integer value of the location of the maximum peak correlation.
 	
     """

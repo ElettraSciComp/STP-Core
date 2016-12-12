@@ -34,7 +34,7 @@ from datetime import datetime
 from h5py import File as getHDF5
 from numpy import float32, ndarray, zeros
 
-from io.tdf import get_nr_projs, read_tomo
+from stp_core.io.tdf import get_nr_projs, read_tomo
 
 
 
