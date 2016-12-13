@@ -2,8 +2,7 @@
 About
 =====
 
-This section describes what the project is about
-`pore3d <https://github.com/decarlof/pore3d>`_.
+This section describes what the `STP Core <https://github.com/ElettraSciComp/STP-Core>`_ project is about ...
 
 .. contents:: Contents:
    :local:

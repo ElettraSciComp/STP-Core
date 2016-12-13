@@ -1,10 +1,11 @@
-======
-Pore3D
-======
+========
+STP Core
+========
 
-`pore3d <https://github.com/decarlof/pore3d>`_ provides  .....
+`STP Core <https://github.com/ElettraSciComp/STP-Core>`_ provides .....
+
 Here is how to add a link to your documentation
-`Docs <http://pore3d.readthedocs.org/>`_ and here is how to add a reference :cite:`cite:01`
+`Docs <http://stp-core.readthedocs.io/>`_ and here is how to add a reference :cite:`cite:01`
 
 
 Features

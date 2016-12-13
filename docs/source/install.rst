@@ -3,7 +3,7 @@ Install
 =======
 
 This section covers the basics of how to download and install 
-`pore3d <https://github.com/decarlof/pore3d>`_.
+`STP Core <https://github.com/ElettraSciComp/STP-Core>`_ 
 
 .. contents:: Contents:
    :local:
@@ -12,13 +12,13 @@ This section covers the basics of how to download and install
 Installing from source
 ======================
   
-Clone the `pore3d <https://github.com/decarlof/pore3d>`_  
+Clone the `STP Core <https://github.com/ElettraSciComp/STP-Core>`_  
 from `GitHub <https://github.com>`_ repository::
 
-    git clone https://github.com/decarlof/pore3d.git pore3d
+    git clone https://github.com/ElettraSciComp/STP-Core.git STP-Core
 
 then::
 
-    cd project
+    cd STP-Core
     python setup.py install
     
