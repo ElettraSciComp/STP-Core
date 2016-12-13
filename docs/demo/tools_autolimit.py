@@ -36,7 +36,8 @@ from h5py import File as getHDF5
 from numpy import float32
 from tifffile import imread, imsave
 
-import io.tdf as tdf
+# pystp-specific:
+import stp_core.io.tdf as tdf
 
 def main(argv):    
 	"""Computes min/max limits to be used in image degradation to 8-bit or 16-bit.

@@ -35,24 +35,26 @@ from time import time
 from multiprocessing import Process, Lock
 
 # pystp-specific:
-from preprocess.extfov_correction import extfov_correction
-from preprocess.flat_fielding import flat_fielding
-from preprocess.ring_correction import ring_correction
-from preprocess.extract_flatdark import extract_flatdark, _medianize
-from preprocess.dynamic_flatfielding import dff_prepare_plan, dynamic_flat_fielding
+from stp_core.preprocess.extfov_correction import extfov_correction
+from stp_core.preprocess.flat_fielding import flat_fielding
+from stp_core.preprocess.ring_correction import ring_correction
+from stp_core.preprocess.extract_flatdark import extract_flatdark, _medianize
+from stp_core.preprocess.dynamic_flatfielding import dff_prepare_plan, dynamic_flat_fielding
 
-from reconstruct.rec_astra import recon_astra_fbp, recon_astra_iterative
-from reconstruct.rec_fista_tv import recon_fista_tv
-from reconstruct.rec_mr_fbp import recon_mr_fbp
-from reconstruct.rec_gridrec import recon_gridrec
+from stp_core.reconstruct.rec_astra import recon_astra_fbp, recon_astra_iterative
+from stp_core.reconstruct.rec_fista_tv import recon_fista_tv
+from stp_core.reconstruct.rec_mr_fbp import recon_mr_fbp
+from stp_core.reconstruct.rec_gridrec import recon_gridrec
 
-from postprocess.postprocess import postprocess
+from stp_core.postprocess.postprocess import postprocess
 
-from utils.padding import upperPowerOfTwo, padImage, padSmoothWidth
+from stp_core.utils.padding import upperPowerOfTwo, padImage, padSmoothWidth
 
 from tifffile import imread, imsave
 from h5py import File as getHDF5
-import io.tdf as tdf
+
+# pystp-specific:
+import stp_core.io.tdf as tdf
 
 
 def reconstruct(im, angles, offset, logtransform, param1, circle, scale, pad, method, rolling, roll_shift,

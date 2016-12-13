@@ -35,7 +35,9 @@ from numpy import float32, float64
 
 from tifffile import imread, imsave
 from h5py import File as getHDF5
-import io.tdf as tdf
+
+# pystp-specific:
+import stp_core.io.tdf as tdf
 
 from multiprocessing import Process, Lock
 

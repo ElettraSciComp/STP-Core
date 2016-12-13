@@ -32,11 +32,10 @@ from os.path import sep, basename, exists
 from time import time
 from multiprocessing import Process, Lock
 
-from postprocess.postprocess import postprocess
+# pystp-specific:
+from stp_core.postprocess.postprocess import postprocess
+
 from tifffile import imread, imsave
-
-
-
 
 def _write_log(lock, fname, logfilename, cputime, iotime):    	      
 

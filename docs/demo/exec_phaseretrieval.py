@@ -34,11 +34,14 @@ from multiprocessing import Process, Lock
 from pyfftw.interfaces.cache import enable as pyfftw_cache_enable, disable as pyfftw_cache_disable
 from pyfftw.interfaces.cache import set_keepalive_time as pyfftw_set_keepalive_time
 
-from phaseretrieval.tiehom import tiehom, tiehom_plan
-from phaseretrieval.phrt   import phrt, phrt_plan
+# pystp-specific:
+from stp_core.phaseretrieval.tiehom import tiehom, tiehom_plan
+from stp_core.phaseretrieval.phrt   import phrt, phrt_plan
 
 from h5py import File as getHDF5
-import io.tdf as tdf
+
+# pystp-specific:
+import stp_core.io.tdf as tdf
 
 
 def _write_data(lock, im, index, outfile, outshape, outtype, logfilename, cputime, itime):    	      

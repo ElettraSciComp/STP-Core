@@ -35,7 +35,8 @@ from sys import argv, exit
 from h5py import File as getHDF5
 from numpy import float32
 
-import io.tdf as tdf
+# pystp-specific:
+import stp_core.io.tdf as tdf
 
 def main(argv):    
 	"""Extract a 2D image (projection or sinogram) from the input TDF file (DataExchange HDF5) and

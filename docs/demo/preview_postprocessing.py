@@ -33,7 +33,9 @@ from time import time
 from numpy import float32, nanmin, nanmax
 from multiprocessing import Process, Lock
 
-from postprocess.postprocess import postprocess
+# pystp-specific:
+from stp_core.postprocess.postprocess import postprocess
+
 from tifffile import imread, imsave
 
 

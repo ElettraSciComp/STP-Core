@@ -38,11 +38,12 @@ from pyfftw.interfaces.cache import set_keepalive_time as pyfftw_set_keepalive_t
 
 import time
 
-import io.tdf as tdf
-import utils.findcenter as findcenter
-from utils.caching import cache2plan, plan2cache
-from preprocess.extract_flatdark import extract_flatdark
-from preprocess.flat_fielding import flat_fielding
+# pystp-specific:
+import stp_core.io.tdf as tdf
+import stp_core.utils.findcenter as findcenter
+from stp_core.utils.caching import cache2plan, plan2cache
+from stp_core.preprocess.extract_flatdark import extract_flatdark
+from stp_core.preprocess.flat_fielding import flat_fielding
 
 from tifffile import imread, imsave # only for debug
 

@@ -35,27 +35,27 @@ from time import time
 from multiprocessing import Process, Lock
 
 # pystp-specific:
-from preprocess.extfov_correction import extfov_correction
-from preprocess.flat_fielding import flat_fielding
-from preprocess.ring_correction import ring_correction
-from preprocess.extract_flatdark import extract_flatdark
+from stp_core.preprocess.extfov_correction import extfov_correction
+from stp_core.preprocess.flat_fielding import flat_fielding
+from stp_core.preprocess.ring_correction import ring_correction
+from stp_core.preprocess.extract_flatdark import extract_flatdark
 
-from phaseretrieval.tiehom import tiehom, tiehom_plan
-from phaseretrieval.phrt   import phrt, phrt_plan
+from stp_core.phaseretrieval.tiehom import tiehom, tiehom_plan
+from stp_core.phaseretrieval.phrt   import phrt, phrt_plan
 
-from reconstruct.rec_astra import recon_astra_fbp, recon_astra_iterative
-from reconstruct.rec_fista_tv import recon_fista_tv
-from reconstruct.rec_mr_fbp import recon_mr_fbp
-from reconstruct.rec_gridrec import recon_gridrec
+from stp_core.reconstruct.rec_astra import recon_astra_fbp, recon_astra_iterative
+from stp_core.reconstruct.rec_fista_tv import recon_fista_tv
+from stp_core.reconstruct.rec_mr_fbp import recon_mr_fbp
+from stp_core.reconstruct.rec_gridrec import recon_gridrec
 
-from postprocess.postprocess import postprocess
+from stp_core.postprocess.postprocess import postprocess
 
-from utils.padding import upperPowerOfTwo, padImage, padSmoothWidth
-from utils.caching import cache2plan, plan2cache
+from stp_core.utils.padding import upperPowerOfTwo, padImage, padSmoothWidth
+from stp_core.utils.caching import cache2plan, plan2cache
 
 from tifffile import imread, imsave
 from h5py import File as getHDF5
-import io.tdf as tdf
+import stp_core.io.tdf as tdf
 
 
 def write_log(lock, fname, logfilename):    	      

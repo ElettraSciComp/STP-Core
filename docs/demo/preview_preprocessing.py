@@ -32,15 +32,16 @@ from numpy import float32, nanmin, nanmax, isscalar
 from time import time
 from multiprocessing import Process, Lock
 
-from preprocess.extfov_correction import extfov_correction
-from preprocess.flat_fielding import flat_fielding
-from preprocess.dynamic_flatfielding import dff_prepare_plan, dynamic_flat_fielding
-from preprocess.ring_correction import ring_correction
-from preprocess.extract_flatdark import extract_flatdark, _medianize
+# pystp-specific:
+from stp_core.preprocess.extfov_correction import extfov_correction
+from stp_core.preprocess.flat_fielding import flat_fielding
+from stp_core.preprocess.dynamic_flatfielding import dff_prepare_plan, dynamic_flat_fielding
+from stp_core.preprocess.ring_correction import ring_correction
+from stp_core.preprocess.extract_flatdark import extract_flatdark, _medianize
 
 from h5py import File as getHDF5
-from utils.caching import cache2plan, plan2cache
-import io.tdf as tdf
+from stp_core.utils.caching import cache2plan, plan2cache
+import stp_core.io.tdf as tdf
 
 def main(argv):          
 	"""To do...

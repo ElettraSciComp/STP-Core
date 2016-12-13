@@ -34,13 +34,14 @@ from multiprocessing import Process, Lock
 from pyfftw.interfaces.cache import enable as pyfftw_cache_enable, disable as pyfftw_cache_disable
 from pyfftw.interfaces.cache import set_keepalive_time as pyfftw_set_keepalive_time
 
-from phaseretrieval.tiehom import tiehom, tiehom_plan
-from phaseretrieval.phrt   import phrt, phrt_plan
+# pystp-specific:
+from stp_core.phaseretrieval.tiehom import tiehom, tiehom_plan
+from stp_core.phaseretrieval.phrt   import phrt, phrt_plan
 
 from h5py import File as getHDF5
-from utils.caching import cache2plan, plan2cache
-from preprocess.extract_flatdark import extract_flatdark
-import io.tdf as tdf
+from stp_core.utils.caching import cache2plan, plan2cache
+from stp_core.preprocess.extract_flatdark import extract_flatdark
+import stp_core.io.tdf as tdf
 
 
 def main(argv):

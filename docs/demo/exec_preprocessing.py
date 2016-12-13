@@ -32,14 +32,17 @@ from numpy import float32, amin, amax, isscalar
 from time import time
 from multiprocessing import Process, Lock
 
-from preprocess.extfov_correction import extfov_correction
-from preprocess.flat_fielding import flat_fielding
-from preprocess.dynamic_flatfielding import dff_prepare_plan, dynamic_flat_fielding
-from preprocess.ring_correction import ring_correction
-from preprocess.extract_flatdark import extract_flatdark, _medianize
+# pystp-specific:
+from stp_core.preprocess.extfov_correction import extfov_correction
+from stp_core.preprocess.flat_fielding import flat_fielding
+from stp_core.preprocess.dynamic_flatfielding import dff_prepare_plan, dynamic_flat_fielding
+from stp_core.preprocess.ring_correction import ring_correction
+from stp_core.preprocess.extract_flatdark import extract_flatdark, _medianize
 
 from h5py import File as getHDF5
-import io.tdf as tdf
+
+# pystp-specific:
+import stp_core.io.tdf as tdf
 
 
 def _write_data(lock, im, index, outfile, outshape, outtype, logfilename, cputime, itime):    	      
@@ -109,12 +112,11 @@ def main(argv):
 	Usage
 	-----
 	
-
 	Parameters
 	---------
 		   
 	Example
-	--------------------------
+	-------
 	The following line processes the first ten TIFF files of input path 
 	"/home/in" and saves the processed files to "/home/out" with the 
 	application of the Boin and Haibel filter with smoothing via a Butterworth
