@@ -34,10 +34,12 @@ def postprocess( im, convert_opt, crop_opt ):
     ----------
     im : array_like
 		Image data as numpy array. 
+
 	convert_opt : string
 		String containing degradation method (8-bit or 16-bit) and min/max 
 		rescaling value (e.g. "linear8:-0.01;0.01"). In current version only
 		"linear" for 16-bit and "linear8" are implemented.
+		
 	crop_opt : double
 		String containing the parameters to crop an image separated by : with
 		order top, bottom, left, right. (e.g. "100:100:100:100")	

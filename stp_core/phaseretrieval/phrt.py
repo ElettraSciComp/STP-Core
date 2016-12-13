@@ -75,10 +75,9 @@ def phrt_plan (im, energy, distance, pixsize, regpar, thresh, method, padding):
 	References
 	----------
 
-
-	Credits
-	-------
-	Julian Moosmann, KIT (Germany) is acknowledged for this code
+	Notes
+	-----
+	Credits to Julian Moosmann, KIT (Germany) is acknowledged for this code
 	
 	"""
 	# Adapt input values:
