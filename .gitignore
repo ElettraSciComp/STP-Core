@@ -60,3 +60,50 @@ target/
 
 #Ipython Notebook
 .ipynb_checkpoints
+
+# OS generated files #
+######################
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+.spyderworkspace
+*.*~
+*~
+
+# Python pyproducts #
+#####################
+*.pyc
+build
+dist
+docs/_build
+doc/_build
+*egg-info
+*.egg
+.settings
+
+# Distribution / packaging #
+############################
+bin/
+build/
+develop-eggs/
+dist/
+eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+.installed.cfg
+
+# Unit test / coverage reports #
+################################
+.tox/
+.coverage
+nosetests.xml
+coverage.xml
+
+
