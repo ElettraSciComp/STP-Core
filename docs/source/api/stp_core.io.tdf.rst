@@ -1,5 +1,5 @@
-:mod:`stp_core.io.tdf`
-======================
+io.tdf
+======
 
 .. automodule:: stp_core.io.tdf
    :members:

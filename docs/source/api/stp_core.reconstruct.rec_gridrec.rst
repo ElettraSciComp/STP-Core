@@ -1,5 +1,5 @@
-:mod:`stp_core.reconstruct.rec_gridrec`
-=======================================
+reconstruct.rec_gridrec
+=======================
 
 .. automodule:: stp_core.reconstruct.rec_gridrec
    :members:

@@ -1,5 +1,5 @@
-:mod:`stp_core.preprocess.extfov_correction`
-============================================
+preprocess.extfov_correction
+============================
 
 .. automodule:: stp_core.preprocess.extfov_correction
    :members:

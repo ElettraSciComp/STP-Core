@@ -6,7 +6,8 @@ API reference
 .. toctree::
 
    api/stp_core.io.tdf
-   api/stp_core.phaseretrieval
+   api/stp_core.phaseretrieval.tiehom
+   api/stp_core.phaseretrieval.phrt
    api/stp_core.postprocess
    api/stp_core.preprocess.extfov_correction
    api/stp_core.preprocess.extract_flatdark

@@ -1,5 +1,5 @@
-:mod:`stp_core.utils.padding`
-=============================
+utils.padding
+=============
 
 .. automodule:: stp_core.utils.padding
    :members:

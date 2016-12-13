@@ -1,5 +1,5 @@
-:mod:`stp_core.preprocess.extract_flatdark`
-===========================================
+preprocess.extract_flatdark
+===========================
 
 .. automodule:: stp_core.preprocess.extract_flatdark
    :members:

@@ -1,5 +1,5 @@
-:mod:`stp_core.utils.caching`
-=============================
+utils.caching
+=============
 
 .. automodule:: stp_core.utils.caching
    :members:

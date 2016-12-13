@@ -1,5 +1,5 @@
-:mod:`stp_core.preprocess.ring_correction`
-==========================================
+preprocess.ring_correction
+==========================
 
 .. automodule:: stp_core.preprocess.ring_correction
    :members:

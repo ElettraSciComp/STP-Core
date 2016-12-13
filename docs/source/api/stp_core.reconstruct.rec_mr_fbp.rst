@@ -1,5 +1,5 @@
-:mod:`stp_core.reconstruct.rec_mr_fbp`
-======================================
+reconstruct.rec_mr_fbp
+======================
 
 .. automodule:: stp_core.reconstruct.rec_mr_fbp
    :members:

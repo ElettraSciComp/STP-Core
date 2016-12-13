@@ -1,5 +1,5 @@
-:mod:`stp_core.preprocess.flat_fielding`
-========================================
+preprocess.flat_fielding
+========================
 
 .. automodule:: stp_core.preprocess.flat_fielding
    :members:

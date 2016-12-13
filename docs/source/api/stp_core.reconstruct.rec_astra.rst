@@ -1,5 +1,5 @@
-:mod:`stp_core.reconstruct.rec_astra`
-=====================================
+reconstruct.rec_astra
+=====================
 
 .. automodule:: stp_core.reconstruct.rec_astra
    :members:

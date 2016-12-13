@@ -1,5 +1,5 @@
-:mod:`stp_core.utils.findcenter`
-================================
+utils.findcenter
+================
 
 .. automodule:: stp_core.utils.findcenter
    :members:

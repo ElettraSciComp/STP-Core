@@ -1,7 +1,7 @@
-:mod:`stp_core.postprocess`
-===========================
+postprocess
+===========
 
-.. automodule:: stp_core.postprocess
+.. automodule:: stp_core.postprocess.postprocess
    :members:
    :show-inheritance:
    :undoc-members:

@@ -1,5 +1,5 @@
-:mod:`stp_core.reconstruct.rec_fista_tv`
-========================================
+reconstruct.rec_fista_tv
+========================
 
 .. automodule:: stp_core.reconstruct.rec_fista_tv
    :members:
