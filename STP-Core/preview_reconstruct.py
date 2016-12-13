@@ -61,7 +61,7 @@ import io.tdf as tdf
 
 def reconstruct(im, angles, offset, logtransform, recpar, circle, scale, pad, method, 
 				zerone_mode, dset_min, dset_max, corr_offset, rolling, roll_shift):
-	"""Reconstruct a sinogram with FBP algorithm (from ASTRA toolbox).
+	"""Reconstruct a sinogram with the specified reconstruction method (or algorithm).
 
 	Parameters
 	----------
@@ -121,18 +121,14 @@ def reconstruct(im, angles, offset, logtransform, recpar, circle, scale, pad, me
 	# Scale image to [0,1] range (if required):
 	if (zerone_mode):
 		
-		#print dset_min
-		#print dset_max
-		#print numpy.amin(im_f[:])
-		#print numpy.amax(im_f[:])
 		#im_f = (im_f - dset_min) / (dset_max - dset_min)
 		
 		# Cheating the whole process:
 		im = (im - numpy.amin(im[:])) / (numpy.amax(im[:]) - numpy.amin(im[:]))
 			
 	# Apply log transform:
-	if (logtransform == True):						
-		im[im <= finfo(float32).eps] = finfo(float32).eps
+	im[im <= finfo(float32).eps] = finfo(float32).eps
+	if (logtransform == True):	
 		im = -nplog(im + corr_offset)	
 	
 	# Replicate pad image to double the width:
@@ -151,7 +147,7 @@ def reconstruct(im, angles, offset, logtransform, recpar, circle, scale, pad, me
 	elif (method == 'MR-FBP_CUDA'):
 		im = recon_mr_fbp(im, angles)
 	elif (method == 'FISTA-TV_CUDA'):
-		im = recon_fista_tv(im, angles, recpar, recpar)
+		im = recon_fista_tv(im, angles, recpar, 60, 60)
 	elif (method == 'GRIDREC'):
 		[im, im] = recon_gridrec(im, im, angles, recpar)	
 	else:
@@ -185,7 +181,8 @@ def reconstruct(im, angles, offset, logtransform, recpar, circle, scale, pad, me
 #		imsave(fname, a.astype(float32))
 		
 def process(sino_idx, num_sinos, infile, outfile, preprocessing_required, corr_plan, skipflat, norm_sx, norm_dx, flat_end, half_half, 
-			half_half_line, ext_fov, ext_fov_rot_right, ext_fov_overlap, ringrem, phaseretrieval_required, phrtmethod, phrt_param1,
+			half_half_line, ext_fov, ext_fov_rot_right, ext_fov_overlap, ext_fov_normalize, ext_fov_average, 
+			ringrem, phaseretrieval_required, phrtmethod, phrt_param1,
 			phrt_param2, energy, distance, pixsize, phrtpad, approx_win, angles, angles_projfrom, angles_projto,
 			offset, logtransform, recpar, circle, scale, pad, method, rolling, roll_shift,
 			zerone_mode, dset_min, dset_max, decim_factor, downsc_factor, corr_offset, postprocess_required, convert_opt, 
@@ -242,7 +239,8 @@ def process(sino_idx, num_sinos, infile, outfile, preprocessing_required, corr_p
 				else:
 					test_im = flat_fielding(test_im, zrange[0] / downsc_factor, corr_plan, flat_end, half_half, 
 											half_half_line / decim_factor, norm_sx, norm_dx).astype(float32)
-			test_im = extfov_correction(test_im, ext_fov, ext_fov_rot_right, ext_fov_overlap / downsc_factor).astype(float32)			
+			if ext_fov:
+				test_im = extfov_correction(test_im, ext_fov_rot_right, ext_fov_overlap / downsc_factor, ext_fov_normalize, ext_fov_average).astype(float32)			
 			if not skipflat and not dynamic_ff:
 				test_im = ring_correction(test_im, ringrem, flat_end, corr_plan['skip_flat_after'], half_half, 
 											half_half_line / decim_factor, ext_fov).astype(float32)	
@@ -275,7 +273,8 @@ def process(sino_idx, num_sinos, infile, outfile, preprocessing_required, corr_p
 					else:
 						test_im = flat_fielding(test_im, zrange[ct] / downsc_factor, corr_plan, flat_end, half_half, 
 											half_half_line / decim_factor, norm_sx, norm_dx).astype(float32)	
-				test_im = extfov_correction(test_im, ext_fov, ext_fov_rot_right, ext_fov_overlap / downsc_factor).astype(float32)
+				if ext_fov:
+					test_im = extfov_correction(test_im, ext_fov_rot_right, ext_fov_overlap / downsc_factor, ext_fov_normalize, ext_fov_average).astype(float32)
 				if not skipflat and not dynamic_ff:
 					test_im = ring_correction(test_im, ringrem, flat_end, corr_plan['skip_flat_after'], half_half, 
 											half_half_line / decim_factor, ext_fov).astype(float32)	
@@ -340,8 +339,9 @@ def process(sino_idx, num_sinos, infile, outfile, preprocessing_required, corr_p
 					im = dynamic_flat_fielding(im, sino_idx, EFF, filtEFF, 2, im_dark, norm_sx, norm_dx)
 				else:
 					im = flat_fielding(im, sino_idx, corr_plan, flat_end, half_half, half_half_line / decim_factor, 
-								norm_sx, norm_dx).astype(float32)		
-			im = extfov_correction(im, ext_fov, ext_fov_rot_right, ext_fov_overlap)
+								norm_sx, norm_dx).astype(float32)	
+			if ext_fov:	
+				im = extfov_correction(im, ext_fov_rot_right, ext_fov_overlap, ext_fov_normalize, ext_fov_average)
 			if not skipflat and not dynamic_ff:
 				im = ring_correction(im, ringrem, flat_end, corr_plan['skip_flat_after'], half_half, 
 								half_half_line / decim_factor, ext_fov)
@@ -426,8 +426,8 @@ def main(argv):
 		
 	ext_fov = True if argv[14] == "True" else False
 		
-	norm_sx = int(argv[17])
-	norm_dx = int(argv[18])	
+	norm_sx = int(argv[19])
+	norm_dx = int(argv[20])	
 		
 	ext_fov_rot_right = argv[15]
 	if ext_fov_rot_right == "True":
@@ -440,49 +440,55 @@ def main(argv):
 			norm_dx = 0
 		
 	ext_fov_overlap = int(argv[16])
+	
+	ext_fov_normalize = True if argv[17] == "True" else False
+	ext_fov_average = True if argv[18] == "True" else False
 		
-	skip_ringrem = True if argv[19] == "True" else False
-	ringrem = argv[20]
+	skip_ringrem = True if argv[21] == "True" else False
+	ringrem = argv[22]
 	
 	# Extra reconstruction parameters:
-	zerone_mode = True if argv[21] == "True" else False		
-	corr_offset = float(argv[22])
+	zerone_mode = True if argv[23] == "True" else False		
+	corr_offset = float(argv[24])
 		
-	reconmethod = argv[23]	
+	reconmethod = argv[25]	
+	# Force overpadding in case of GRIDREC for unknown reasons:
+	if reconmethod == "GRIDREC":
+		overpad = True
 	
-	decim_factor = int(argv[24])
-	downsc_factor = int(argv[25])
+	decim_factor = int(argv[26])
+	downsc_factor = int(argv[27])
 	
 	# Parameters for postprocessing:
-	postprocess_required = True if argv[26] == "True" else False
-	convert_opt = argv[27]
-	crop_opt = argv[28]
+	postprocess_required = True if argv[28] == "True" else False
+	convert_opt = argv[29]
+	crop_opt = argv[30]
 
 	# Parameters for on-the-fly phase retrieval:
-	phaseretrieval_required = True if argv[29] == "True" else False		
-	phrtmethod = int(argv[30])
-	phrt_param1 = double(argv[31])   # param1( e.g.  regParam, or beta)
-	phrt_param2 = double(argv[32])   # param2( e.g.  thresh or delta)
-	energy = double(argv[33])
-	distance = double(argv[34])    
-	pixsize = double(argv[35]) / 1000.0 # pixsixe from micron to mm:
-	phrtpad = True if argv[36] == "True" else False
-	approx_win = int(argv[37])	
+	phaseretrieval_required = True if argv[31] == "True" else False		
+	phrtmethod = int(argv[32])
+	phrt_param1 = double(argv[33])   # param1( e.g.  regParam, or beta)
+	phrt_param2 = double(argv[34])   # param2( e.g.  thresh or delta)
+	energy = double(argv[35])
+	distance = double(argv[36])    
+	pixsize = double(argv[37]) / 1000.0 # pixsixe from micron to mm:
+	phrtpad = True if argv[38] == "True" else False
+	approx_win = int(argv[39])	
 
-	angles_projfrom = int(argv[38])	
-	angles_projto = int(argv[39])	
+	angles_projfrom = int(argv[40])	
+	angles_projto = int(argv[41])	
 
-	rolling = True if argv[40] == "True" else False
-	roll_shift = int(argv[41])
+	rolling = True if argv[42] == "True" else False
+	roll_shift = int(argv[43])
 
-	preprocessingplan_fromcache = True if argv[42] == "True" else False
-	dynamic_ff = True if argv[43] == "True" else False
+	preprocessingplan_fromcache = True if argv[44] == "True" else False
+	dynamic_ff = True if argv[45] == "True" else False
 
-	nr_threads = int(argv[44])	
-	tmppath = argv[45]	
+	nr_threads = int(argv[46])	
+	tmppath = argv[47]	
 	if not tmppath.endswith(sep): tmppath += sep
 		
-	logfilename = argv[46]		
+	logfilename = argv[48]		
 			
 	# Open the HDF5 file:
 	f_in = getHDF5(infile, 'r')
@@ -587,13 +593,12 @@ def main(argv):
 
 	# Run computation:
 	process(sino_idx, num_sinos, infile, outfile, preprocessing_required, corrplan, skipflat, norm_sx, 
-				norm_dx, flat_end, half_half, half_half_line, ext_fov, ext_fov_rot_right, ext_fov_overlap, ringrem, 
-				phaseretrieval_required, phrtmethod, phrt_param1, phrt_param2, energy, distance, pixsize, phrtpad, approx_win, angles, 
-				angles_projfrom, angles_projto, offset, 
-				logtrsf, recpar, circle, scale, overpad, reconmethod, 
-                rolling, roll_shift,
-                zerone_mode, dset_min, dset_max, decim_factor, 
-				downsc_factor, corr_offset, postprocess_required, convert_opt, crop_opt, dynamic_ff, EFF, filtEFF, im_dark, nr_threads, logfilename)		
+				norm_dx, flat_end, half_half, half_half_line, ext_fov, ext_fov_rot_right, ext_fov_overlap, 
+				ext_fov_normalize, ext_fov_average, ringrem, phaseretrieval_required, phrtmethod, phrt_param1, 
+				phrt_param2, energy, distance, pixsize, phrtpad, approx_win, angles, angles_projfrom, 
+				angles_projto, offset, logtrsf, recpar, circle, scale, overpad, reconmethod, rolling, 
+				roll_shift, zerone_mode, dset_min, dset_max, decim_factor, downsc_factor, corr_offset, 
+				postprocess_required, convert_opt, crop_opt, dynamic_ff, EFF, filtEFF, im_dark, nr_threads, logfilename)		
 
 	# Sample:
 	# 311 C:\Temp\BrunGeorgos.tdf C:\Temp\BrunGeorgos.raw 3.1416 -31.0 shepp-logan

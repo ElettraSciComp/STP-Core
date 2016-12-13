@@ -60,11 +60,13 @@ def _write_data(lock, im, index, offset, abs_offset, imfilename, timestamp, proj
 		else:
 			tdf.write_sino(f_out_dset, index - abs_offset, im)
 					
-		# Set minimum and maximum:
-		if ( numpy.amin(im[:]) < float(f_out_dset.attrs['min']) ):
-			f_out_dset.attrs['min'] = str(numpy.amin(im[:]))
-		if ( numpy.amax(im[:]) > float(f_out_dset.attrs['max'])):
-			f_out_dset.attrs['max'] = str(numpy.amax(im[:]))	
+		# Set minimum and maximum (without Infs and NaNs):		
+		tmp = im[:].astype(numpy.float32)
+		tmp = tmp[numpy.nonzero(numpy.isfinite(tmp))]
+		if ( numpy.amin(tmp[:]) < float(f_out_dset.attrs['min']) ):
+			f_out_dset.attrs['min'] = str(numpy.amin(tmp[:]))
+		if ( numpy.amax(tmp[:]) > float(f_out_dset.attrs['max'])):
+			f_out_dset.attrs['max'] = str(numpy.amax(tmp[:]))	
 			
 		# Save provenance metadata:
 		provenance_dset =  f_out.require_dataset('provenance/detector_output', (tot_files,), dtype=provenance_dt)	
@@ -111,7 +113,7 @@ def _process(lock, int_from, int_to, offset, abs_offset, files, projorder, outfi
 def main(argv):          
 	"""
 	Converts a sequence of TIFF files into a TDF file (HDF5 Tomo Data Format).
-	    
+		
 	Parameters
 	----------
 	from : scalar, integer
@@ -358,8 +360,10 @@ def main(argv):
 		else:
 			dset.attrs['axes'] = "theta:y:x"
 				
-		dset.attrs['min'] = str(numpy.amin(im[:]))
-		dset.attrs['max'] = str(numpy.amax(im[:]))	
+		tmp = im[:].astype(numpy.float32)
+		tmp = tmp[numpy.nonzero(numpy.isfinite(tmp))]
+		dset.attrs['min'] = str(numpy.amin(tmp[:]))
+		dset.attrs['max'] = str(numpy.amax(tmp[:]))	
 
 		# Get the total number of files to consider:
 		tot_files = num_files	
@@ -414,9 +418,11 @@ def main(argv):
 					compression="gzip", compression_opts=compr_opts, shuffle=True, fletcher32=True)
 			else:
 				dset = f.create_dataset('exchange/data_white', flatshape, im.dtype)		
-						
-			dset.attrs['min'] = str(numpy.amin(im[:]))
-			dset.attrs['max'] = str(numpy.amax(im[:]))
+				
+			tmp = im[:].astype(numpy.float32)
+			tmp = tmp[numpy.nonzero(numpy.isfinite(tmp))]		
+			dset.attrs['min'] = str(numpy.amin(tmp[:]))
+			dset.attrs['max'] = str(numpy.amax(tmp[:]))
 			
 			if privilege_sino:			
 				dset.attrs['axes'] = "y:theta:x"
@@ -451,8 +457,10 @@ def main(argv):
 			else:
 				dset = f.create_dataset('exchange/data_dark', darkshape, im.dtype)	
 			
-			dset.attrs['min'] = str(numpy.amin(im))
-			dset.attrs['max'] = str(numpy.amax(im))
+			tmp = im[:].astype(numpy.float32)
+			tmp = tmp[numpy.nonzero(numpy.isfinite(tmp))]
+			dset.attrs['min'] = str(numpy.amin(tmp))
+			dset.attrs['max'] = str(numpy.amax(tmp))
 			
 			if privilege_sino:			
 				dset.attrs['axes'] = "y:theta:x"
@@ -496,8 +504,8 @@ def main(argv):
 		Process(target=_process, args=(lock, start, end, flatdark_offset, int_from, tomo_files, projorder, outfile, 'exchange/data', 
 				datashape, im.dtype, crop_top, crop_bottom, crop_left, crop_right, tot_files, provenance_dt, logfilename )).start()
 		
-		#process(lock, start, end, offset, tomo_files, projorder, outfile, 'exchange/data', 
-		#		datashape, im.dtype, crop_top, crop_bottom, crop_left, crop_right, tot_files, provenance_dt, logfilename )
+	#_process(lock, int_from, int_to, flatdark_offset, int_from, tomo_files, projorder, outfile, 'exchange/data', 
+	#		datashape, im.dtype, crop_top, crop_bottom, crop_left, crop_right, tot_files, provenance_dt, logfilename )
 	
 if __name__ == "__main__":
 	main(argv[1:])

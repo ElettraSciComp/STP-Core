@@ -75,17 +75,20 @@ def main(argv):
 		if (ext_fov):
 			norm_dx = 0		
 	ext_fov_overlap = int(argv[10])
+
+	ext_fov_normalize = True if argv[11] == "True" else False
+	ext_fov_average = True if argv[12] == "True" else False
 		
 	# Method and parameters coded into a string:
-	ringrem = argv[11]	
+	ringrem = argv[13]	
 	
 	# Flat fielding method (conventional or dynamic):
-	dynamic_ff = True if argv[12] == "True" else False
+	dynamic_ff = True if argv[14] == "True" else False
 	
 	# Tmp path and log file:
-	tmppath = argv[13]	
+	tmppath = argv[15]	
 	if not tmppath.endswith(sep): tmppath += sep		
-	logfilename = argv[14]		
+	logfilename = argv[16]		
 
 	
 	# Open the HDF5 file:	
@@ -162,8 +165,8 @@ def main(argv):
 			im = dynamic_flat_fielding(im, idx, EFF, filtEFF, 2, im_dark, norm_sx, norm_dx)
 		else:
 			im = flat_fielding(im, idx, corrplan, flat_end, half_half, half_half_line, norm_sx, norm_dx)	
-						
-	im = extfov_correction(im, ext_fov, ext_fov_rot_right, ext_fov_overlap)
+	if ext_fov:			
+		im = extfov_correction(im, ext_fov_rot_right, ext_fov_overlap, ext_fov_normalize, ext_fov_average)
 	if not skipflat and not dynamic_ff:
 		im = ring_correction (im, ringrem, flat_end, corrplan['skip_flat_after'], half_half, half_half_line, ext_fov)		
 	else:

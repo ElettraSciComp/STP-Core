@@ -62,7 +62,7 @@ def recon_fista_tv(im, angles, lam, fista_iter, iter):
 	
 	# Define parameters and FISTA object that performs reconstruction:
 	#lam = 1**-14
-	f = tvtomo.FISTA(p, double(lam), fista_iter)
+	f = tvtomo.FISTA(p, float32(lam), fista_iter)
 
 	# Actual reconstruction (takes time):
 	im_rec = f.reconstruct(im.astype(float32), iter)

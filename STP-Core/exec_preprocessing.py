@@ -68,8 +68,8 @@ def _write_data(lock, im, index, outfile, outshape, outtype, logfilename, cputim
 		lock.release()	
 
 def _process (lock, int_from, int_to, infile, outfile, outshape, outtype, skipflat, plan, norm_sx, norm_dx, flat_end, 
-			 half_half, half_half_line, ext_fov, ext_fov_rot_right, ext_fov_overlap, ringrem, dynamic_ff, EFF, 
-			 filtEFF, im_dark, logfilename):
+			 half_half, half_half_line, ext_fov, ext_fov_rot_right, ext_fov_overlap, ext_fov_normalize, ext_fov_average,
+			 ringrem, dynamic_ff, EFF, filtEFF, im_dark, logfilename):
 
 	# Process the required subset of images:
 	for i in range(int_from, int_to + 1):                 
@@ -92,7 +92,8 @@ def _process (lock, int_from, int_to, infile, outfile, outshape, outtype, skipfl
 				im = dynamic_flat_fielding(im, i, EFF, filtEFF, 2, im_dark, norm_sx, norm_dx)
 			else:
 				im = flat_fielding(im, i, plan, flat_end, half_half, half_half_line, norm_sx, norm_dx)			
-		im = extfov_correction(im, ext_fov, ext_fov_rot_right, ext_fov_overlap)
+		if ext_fov:
+			im = extfov_correction(im, ext_fov_rot_right, ext_fov_overlap, ext_fov_normalize, ext_fov_average)
 		if not skipflat and not dynamic_ff:
 			im = ring_correction (im, ringrem, flat_end, plan['skip_flat_after'], half_half, half_half_line, ext_fov)
 		else:
@@ -154,16 +155,19 @@ def main(argv):
 		if (ext_fov):
 			norm_dx = 0		
 	ext_fov_overlap = int(argv[11])
+
+	ext_fov_normalize = True if argv[12] == "True" else False
+	ext_fov_average = True if argv[13] == "True" else False
 		
 	# Method and parameters coded into a string:
-	ringrem = argv[12]	
+	ringrem = argv[14]	
 
 	# Flat fielding method (conventional or dynamic):
-	dynamic_ff = True if argv[13] == "True" else False
+	dynamic_ff = True if argv[15] == "True" else False
 	
 	# Nr of threads and log file:
-	nr_threads = int(argv[14])
-	logfilename = argv[15]		
+	nr_threads = int(argv[16])
+	logfilename = argv[17]		
 
 
 
@@ -267,7 +271,7 @@ def main(argv):
 		# Read input sino:
 		idx = num_sinos / 2
 		im = tdf.read_sino(dset,idx).astype(float32)				
-		im = extfov_correction(im, ext_fov, ext_fov_rot_right, ext_fov_overlap)
+		im = extfov_correction(im, ext_fov_rot_right, ext_fov_overlap, ext_fov_normalize, ext_fov_average)
 		
 		# Get the corrected outshape:		
 		outshape = tdf.get_dset_shape(im.shape[1], num_sinos, im.shape[0])		
@@ -303,15 +307,15 @@ def main(argv):
 		else:
 			end = (num_sinos / nr_threads)*(num + 1) - 1
 		Process(target=_process, args=(lock, start, end, infile, outfile, outshape, im.dtype, skipflat, plan, norm_sx, 
-				norm_dx, flat_end, half_half, half_half_line, ext_fov, ext_fov_rot_right, ext_fov_overlap, ringrem, 
-				dynamic_ff, EFF, filtEFF, im_dark, logfilename )).start()
+				norm_dx, flat_end, half_half, half_half_line, ext_fov, ext_fov_rot_right, ext_fov_overlap, 
+				ext_fov_normalize, ext_fov_average, ringrem, dynamic_ff, EFF, filtEFF, im_dark, logfilename )).start()
 
 
 	#start = int_from # 0
 	#end = int_to # num_sinos - 1
 	#_process(lock, start, end, infile, outfile, outshape, im.dtype, skipflat, plan, norm_sx, 
-	#			norm_dx, flat_end, half_half, half_half_line, ext_fov, ext_fov_rot_right, ext_fov_overlap, ringrem, 
-	#			dynamic_ff, EFF, filtEFF, im_dark, logfilename)
+	#			norm_dx, flat_end, half_half, half_half_line, ext_fov, ext_fov_rot_right, ext_fov_overlap, 
+	#           ext_fov_normalize, ext_fov_average, ringrem, dynamic_ff, EFF, filtEFF, im_dark, logfilename)
 
 	#255 256 C:\Temp\BrunGeorgos.tdf C:\Temp\BrunGeorgos_corr.tdf 0 0 True True 900 False False 0 rivers:11;0 False 1 C:\Temp\log_00.txt
 

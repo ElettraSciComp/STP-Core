@@ -22,7 +22,7 @@
 
 #
 # Author: Francesco Brun
-# Last modified: July, 8th 2016
+# Last modified: December, 11th 2016
 #
 
 
@@ -41,9 +41,9 @@ def main(argv):
 	"""Extract a 2D image (projection or sinogram) from the input TDF file (DataExchange HDF5) and
 	creates a 32-bit RAW file to disk.
 
-    Parameters
-    ----------
-    argv[0] : string
+	Parameters
+	----------
+	argv[0] : string
 		The absolute path of the input TDF.
 
 	argv[1] : int
@@ -60,7 +60,7 @@ def main(argv):
 	-------
 	tools_extractdata "S:\\dataset.tdf" 128 tomo "R:\\proj"	
 
-    """
+	"""
 	try:
 		#
 		# Get input parameters:
@@ -109,27 +109,25 @@ def main(argv):
 				dset = f['exchange/data']	
 			im = tdf.read_tomo( dset, index )
 				
+		# Remove Infs e NaNs
+		tmp = im[:].astype(numpy.float32)
+		tmp = tmp[numpy.nonzero(numpy.isfinite(tmp))]	
 
-		min = float(numpy.nanmin(im[:]))
-		max = float(numpy.nanmax(im[:]))
-			
-		# Get global attributes (if any):
-		try:
-			if ('version' in f.attrs):
-				if (f.attrs['version'] == '1.0'):	
-					min = float(dset_tomo.attrs['min'])
-					max = float(dset_tomo.attrs['max'])			
-		except: 
-			pass
-		
-		f.close()
-		
-		# Cast type:
-		im = im.astype(float32)
+		# Sort the gray levels:
+		tmp = numpy.sort(tmp)
+	
+		# Return as minimum the value the skip 0.30% of "black" tail and 0.05% of "white" tail:
+		low_idx  = int(tmp.shape[0] * 0.0030)
+		high_idx = int(tmp.shape[0] * 0.9995)
+		min = tmp[low_idx]
+		max = tmp[high_idx]
 		
 		# Modify file name:
 		outfile = outfile + '_' + str(im.shape[1]) + 'x' + str(im.shape[0]) + '_' + str(min) + '$' + str(max)	
 		
+		# Cast type:
+		im = im.astype(float32)
+
 		# Write RAW data to disk:
 		im.tofile(outfile)			
 	

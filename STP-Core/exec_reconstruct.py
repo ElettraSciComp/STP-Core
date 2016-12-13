@@ -146,10 +146,6 @@ def reconstruct(im, angles, offset, logtransform, param1, circle, scale, pad, me
 	# Scale image to [0,1] range (if required):
 	if (zerone_mode):
 		
-		#print dset_min
-		#print dset_max
-		#print numpy.amin(im_f[:])
-		#print numpy.amax(im_f[:])
 		#im_f = (im_f - dset_min) / (dset_max - dset_min)
 		
 		# Cheating the whole process:
@@ -176,7 +172,7 @@ def reconstruct(im, angles, offset, logtransform, param1, circle, scale, pad, me
 	elif (method == 'MR-FBP_CUDA'):
 		im_f = recon_mr_fbp(im_f, angles)
 	elif (method == 'FISTA-TV_CUDA'):
-		im_f = recon_fista_tv(im_f, angles, param1, param1)
+		im_f = recon_fista_tv(im_f, angles, param1, 100, 100)
 	else:
 		im_f = recon_astra_iterative(im_f, angles, method, param1, zerone_mode)	
 
@@ -377,8 +373,8 @@ def write_log_gridrec(lock, fname1, fname2, logfilename, cputime, iotime):
 		lock.release()	
 
 def process_gridrec(lock, int_from, int_to, num_sinos, infile, outpath, preprocessing_required, skipflat, corr_plan, 
-			norm_sx, norm_dx, flat_end, half_half, 
-			half_half_line, ext_fov, ext_fov_rot_right, ext_fov_overlap, ringrem, angles, angles_projfrom, angles_projto,
+			norm_sx, norm_dx, flat_end, half_half, half_half_line, ext_fov, ext_fov_rot_right, ext_fov_overlap, 
+			ext_fov_normalize, ext_fov_average, ringrem, angles, angles_projfrom, angles_projto,
 			offset, logtransform, param1, circle, scale, pad, rolling, roll_shift, zerone_mode, dset_min, dset_max, decim_factor, 
 			downsc_factor, corr_offset,	postprocess_required, convert_opt, crop_opt, dynamic_ff, EFF, filtEFF, im_dark, 
 			outprefix, logfilename):
@@ -416,7 +412,8 @@ def process_gridrec(lock, int_from, int_to, num_sinos, infile, outpath, preproce
 					im1 = dynamic_flat_fielding(im1, i, EFF, filtEFF, 2, im_dark, norm_sx, norm_dx)
 				else:
 					im1 = flat_fielding (im1, i, corr_plan, flat_end, half_half, half_half_line, norm_sx, norm_dx).astype(float32)		
-			im1 = extfov_correction (im1, ext_fov, ext_fov_rot_right, ext_fov_overlap)
+			if ext_fov:
+				im1 = extfov_correction (im1, ext_fov_rot_right, ext_fov_overlap, ext_fov_normalize, ext_fov_average)
 			if not skipflat:
 				im1 = ring_correction (im1, ringrem, flat_end, corr_plan['skip_flat_after'], half_half, half_half_line, ext_fov)
 			else:
@@ -427,8 +424,9 @@ def process_gridrec(lock, int_from, int_to, num_sinos, infile, outpath, preproce
 					# Dynamic flat fielding with downsampling = 2:
 					im2 = dynamic_flat_fielding(im2, i, EFF, filtEFF, 2, im_dark, norm_sx, norm_dx)
 				else:
-					im2 = flat_fielding (im2, i + 1, corr_plan, flat_end, half_half, half_half_line, norm_sx, norm_dx).astype(float32)		
-			im2 = extfov_correction (im2, ext_fov, ext_fov_rot_right, ext_fov_overlap)
+					im2 = flat_fielding (im2, i + 1, corr_plan, flat_end, half_half, half_half_line, norm_sx, norm_dx).astype(float32)	
+			if ext_fov:	
+				im2 = extfov_correction (im2, ext_fov_rot_right, ext_fov_overlap, ext_fov_normalize, ext_fov_average)
 			if not skipflat and not dynamic_ff:		
 				im2 = ring_correction (im2, ringrem, flat_end, corr_plan['skip_flat_after'], half_half, half_half_line, ext_fov)
 			else:
@@ -474,9 +472,9 @@ def process_gridrec(lock, int_from, int_to, num_sinos, infile, outpath, preproce
 
 
 def process(lock, int_from, int_to, num_sinos, infile, outpath, preprocessing_required, skipflat, corr_plan, norm_sx, norm_dx, 
-			flat_end, half_half, 
-			half_half_line, ext_fov, ext_fov_rot_right, ext_fov_overlap, ringrem, angles, angles_projfrom, angles_projto,
-            offset, logtransform, param1, circle, scale, pad, method, rolling, roll_shift, zerone_mode, dset_min, dset_max, decim_factor, 
+			flat_end, half_half, half_half_line, ext_fov, ext_fov_rot_right, ext_fov_overlap, ext_fov_normalize, ext_fov_average,
+			ringrem, angles, angles_projfrom, angles_projto, offset, logtransform, param1, circle, scale, pad, method, 
+			rolling, roll_shift, zerone_mode, dset_min, dset_max, decim_factor, 
 			downsc_factor, corr_offset,	postprocess_required, convert_opt, crop_opt, dynamic_ff, EFF, filtEFF, im_dark, 
 			outprefix, logfilename):
 	"""To do...
@@ -565,8 +563,9 @@ def process(lock, int_from, int_to, num_sinos, infile, outpath, preprocessing_re
 					# Dynamic flat fielding with downsampling = 2:
 					im = dynamic_flat_fielding(im, i, EFF, filtEFF, 2, im_dark, norm_sx, norm_dx).astype(float32)
 				else:
-					im = flat_fielding (im, i, corr_plan, flat_end, half_half, half_half_line, norm_sx, norm_dx).astype(float32)		
-			im = extfov_correction (im, ext_fov, ext_fov_rot_right, ext_fov_overlap)
+					im = flat_fielding (im, i, corr_plan, flat_end, half_half, half_half_line, norm_sx, norm_dx).astype(float32)	
+			if ext_fov:	
+				im = extfov_correction (im, ext_fov_rot_right, ext_fov_overlap, ext_fov_normalize, ext_fov_average)
 			if not skipflat and not dynamic_ff:
 				im = ring_correction (im, ringrem, flat_end, corr_plan['skip_flat_after'], half_half, half_half_line, ext_fov)
 			else:
@@ -657,8 +656,8 @@ def main(argv):
 		
 	ext_fov = True if argv[16] == "True" else False
 		
-	norm_sx = int(argv[19])
-	norm_dx = int(argv[20])	
+	norm_sx = int(argv[21])
+	norm_dx = int(argv[22])	
 		
 	ext_fov_rot_right = argv[17]
 	if ext_fov_rot_right == "True":
@@ -671,34 +670,40 @@ def main(argv):
 			norm_dx = 0
 		
 	ext_fov_overlap = int(argv[18])
+
+	ext_fov_normalize = True if argv[19] == "True" else False
+	ext_fov_average = True if argv[20] == "True" else False
 		
-	skip_ringrem = True if argv[21] == "True" else False
-	ringrem = argv[22]
+	skip_ringrem = True if argv[23] == "True" else False
+	ringrem = argv[24]
 	
 	# Extra reconstruction parameters:
-	zerone_mode = True if argv[23] == "True" else False		
-	corr_offset = float(argv[24])
+	zerone_mode = True if argv[25] == "True" else False		
+	corr_offset = float(argv[26])
 		
-	reconmethod = argv[25]		
+	reconmethod = argv[27]	
+	# Force overpadding in case of GRIDREC for unknown reasons:
+	if reconmethod == "GRIDREC":
+		overpad = True	
 	
-	decim_factor = int(argv[26])
-	downsc_factor = int(argv[27])
+	decim_factor = int(argv[28])
+	downsc_factor = int(argv[29])
 	
 	# Parameters for postprocessing:
-	postprocess_required = True if argv[28] == "True" else False
-	convert_opt = argv[29]
-	crop_opt = argv[30]
+	postprocess_required = True if argv[30] == "True" else False
+	convert_opt = argv[31]
+	crop_opt = argv[32]
 
-	angles_projfrom = int(argv[31])	
-	angles_projto = int(argv[32])
+	angles_projfrom = int(argv[33])	
+	angles_projto = int(argv[34])
 
-	rolling = True if argv[33] == "True" else False
-	roll_shift = int(argv[34])
+	rolling = True if argv[35] == "True" else False
+	roll_shift = int(argv[36])
 
-	dynamic_ff 	= True if argv[35] == "True" else False
+	dynamic_ff 	= True if argv[37] == "True" else False
 	
-	nr_threads = int(argv[36])	
-	logfilename = argv[37]	
+	nr_threads = int(argv[38])	
+	logfilename = argv[39]	
 	process_id = int(logfilename[-6:-4])
 	
 	# Check prefixes and path:
@@ -833,19 +838,17 @@ def main(argv):
 		if (reconmethod == 'GRIDREC'):
 			Process(target=process_gridrec, args=(lock, start, end, num_sinos, infile, outpath, preprocessing_required, skipflat, 
 						corrplan, norm_sx, norm_dx, flat_end, half_half, half_half_line, ext_fov, ext_fov_rot_right, 
-						ext_fov_overlap, ringrem, 
-						angles, angles_projfrom, angles_projto, offset, logtrsf, param1, circle, scale, overpad, 
-                        rolling, roll_shift,
+						ext_fov_overlap, ext_fov_normalize, ext_fov_average, ringrem, angles, angles_projfrom, angles_projto, 
+						offset, logtrsf, param1, circle, scale, overpad, rolling, roll_shift,
 						zerone_mode, dset_min, dset_max, decim_factor, downsc_factor, corr_offset, 
 						postprocess_required, convert_opt, crop_opt, dynamic_ff, EFF, filtEFF, im_dark, outprefix, 
 						logfilename )).start()
 		else:
 			Process(target=process, args=(lock, start, end, num_sinos, infile, outpath, preprocessing_required, skipflat, 
-						corrplan, norm_sx, 
-						norm_dx, flat_end, half_half, half_half_line, ext_fov, ext_fov_rot_right, ext_fov_overlap, ringrem, 
-						angles, angles_projfrom, angles_projto, offset, logtrsf, param1, circle, scale, overpad, 
-						reconmethod, rolling, roll_shift,
-                        zerone_mode, dset_min, dset_max, decim_factor, downsc_factor, corr_offset, 
+						corrplan, norm_sx, norm_dx, flat_end, half_half, half_half_line, ext_fov, ext_fov_rot_right, 
+						ext_fov_overlap, ext_fov_normalize, ext_fov_average, ringrem, angles, angles_projfrom, angles_projto, 
+						offset, logtrsf, param1, circle, scale, overpad, reconmethod, rolling, roll_shift,
+						zerone_mode, dset_min, dset_max, decim_factor, downsc_factor, corr_offset, 
 						postprocess_required, convert_opt, crop_opt, dynamic_ff, EFF, filtEFF, im_dark, outprefix, 
 						logfilename )).start()
 
@@ -853,16 +856,17 @@ def main(argv):
 	#end = int_to
 	#if (reconmethod == 'GRIDREC'):
 	#	process_gridrec(lock, start, end, num_sinos, infile, outpath, preprocessing_required, skipflat, corrplan, norm_sx, 
-	#					norm_dx, flat_end, half_half, half_half_line, ext_fov, ext_fov_rot_right, ext_fov_overlap, ringrem, 
-	#					angles, angles_projfrom, angles_projto, offset, logtrsf, param1, circle, scale, overpad, 
-	#                   rolling, roll_shift,
+	#					norm_dx, flat_end, half_half, half_half_line, ext_fov, ext_fov_rot_right, ext_fov_overlap, 
+	#                   ext_fov_normalize, ext_fov_average, ringrem, angles, angles_projfrom, angles_projto, offset, 
+	#                   logtrsf, param1, circle, scale, overpad, rolling, roll_shift,
 	#					zerone_mode, dset_min, dset_max, decim_factor, downsc_factor, corr_offset, 
 	#					postprocess_required, convert_opt, crop_opt, dynamic_ff, EFF, filtEFF, im_dark, outprefix, logfilename)
 	#else:
 	#	process(lock, start, end, num_sinos, infile, outpath, preprocessing_required, skipflat, corrplan, norm_sx, 
-	#					norm_dx, flat_end, half_half, half_half_line, ext_fov, ext_fov_rot_right, ext_fov_overlap, ringrem, 
-	#					angles, angles_projfrom, angles_projto, offset, logtrsf, param1, circle, scale, overpad, 
-	#					reconmethod, rolling, roll_shift, zerone_mode, dset_min, dset_max, decim_factor, downsc_factor, corr_offset, 
+	#					norm_dx, flat_end, half_half, half_half_line, ext_fov, ext_fov_rot_right, ext_fov_overlap, 
+	#                   ext_fov_normalize, ext_fov_average, ringrem, angles, angles_projfrom, angles_projto, offset, 
+	#                   logtrsf, param1, circle, scale, overpad, reconmethod, rolling, roll_shift, zerone_mode, dset_min, 
+	#                   dset_max, decim_factor, downsc_factor, corr_offset, 
 	#					postprocess_required, convert_opt, crop_opt, dynamic_ff, EFF, filtEFF, im_dark, outprefix, logfilename)
 
 	# Example:

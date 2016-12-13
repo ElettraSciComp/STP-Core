@@ -128,10 +128,12 @@ def _processHIS( HISfilename, dset, dset_offset, provenance_dset, provenance_off
 	print dset.attrs['max']
 	
 	# Set minimum and maximum:
-	if ( numpy.amin(im[:]) < float(dset.attrs['min']) ):
-		dset.attrs['min'] = str(numpy.amin(im[:]))
-	if ( numpy.amax(im[:]) > float(dset.attrs['max'])):
-		dset.attrs['max'] = str(numpy.amax(im[:]))
+	tmp = im[:].astype(numpy.float32)
+	tmp = tmp[numpy.nonzero(numpy.isfinite(tmp))]	
+	if ( numpy.amin(tmp[:]) < float(dset.attrs['min']) ):
+		dset.attrs['min'] = str(numpy.amin(tmp[:]))
+	if ( numpy.amax(tmp[:]) > float(dset.attrs['max'])):
+		dset.attrs['max'] = str(numpy.amax(tmp[:]))
 		
 	print numpy.amax(im[:])
 	print dset.attrs['max']
@@ -179,10 +181,12 @@ def _processHIS( HISfilename, dset, dset_offset, provenance_dset, provenance_off
 			im    = im[crop_top:im.shape[0]-crop_bottom,crop_left:im.shape[1]-crop_right]	
 									
 			# Set minimum and maximum:
-			if ( float(numpy.amin(im[:])) < float(dset.attrs['min']) ):				
-				dset.attrs['min'] = str(numpy.amin(im[:]))				
-			if ( float(numpy.amax(im[:])) > float(dset.attrs['max'])):				
-				dset.attrs['max'] = str(numpy.amax(im[:]))				
+			tmp = im[:].astype(numpy.float32)
+			tmp = tmp[numpy.nonzero(numpy.isfinite(tmp))]	
+			if ( float(numpy.amin(tmp[:])) < float(dset.attrs['min']) ):				
+				dset.attrs['min'] = str(numpy.amin(tmp[:]))				
+			if ( float(numpy.amax(tmp[:])) > float(dset.attrs['max'])):				
+				dset.attrs['max'] = str(numpy.amax(tmp[:]))				
 			
 			# Process first projection (fill HDF5):
 			i = i + 1
@@ -219,7 +223,7 @@ def _processHIS( HISfilename, dset, dset_offset, provenance_dset, provenance_off
 def main(argv):          
 	"""
 	Converts a set of HIS files into a TDF file (HDF5 Tomo Data Format).
-	    
+		
 	Parameters
 	----------
 	from : scalar, integer
@@ -530,7 +534,8 @@ def main(argv):
 			
 	# Process the HIS:
 	provenance_offset = 0
-		
+	
+	# (Stupid idea for time offset):	
 	if num_flats > 0:
 		provenance_offset = _processHIS( flat_file, flatdset, 0, provenance_dset, provenance_offset, 
 			0, 'flat', crop_top, crop_bottom, crop_left, crop_right, logfilename )	

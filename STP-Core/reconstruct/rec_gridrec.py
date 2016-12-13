@@ -30,6 +30,8 @@ from scipy.misc import imresize #scipy 0.12
 
 from _gridrec import paralrecon
 
+#from tifffile import *
+
 def recon_gridrec(im1, im2, angles, oversampling):
 	"""Reconstruct two sinograms (of the same CT scan) with direct Fourier algorithm.
 

@@ -22,65 +22,85 @@
 
 #
 # Author: Francesco Brun
-# Last modified: July, 8th 2016
+# Last modified: December, 12th 2016
 #
 
-from numpy import fliplr, tile, concatenate
+from numpy import median, fliplr, tile, concatenate, float32, finfo
 
-def extfov_correction(im, ext_fov, ext_fov_rot_right, ext_fov_overlap):
+def extfov_correction(im, ext_fov_rot_right, ext_fov_overlap, ext_fov_normalize, ext_fov_average):
 	"""Apply sinogram correction for extended FOV acquisition mode
 
-    Parameters
-    ----------
-    im : array_like
-        Image data (sinogram) as numpy array.
+	Parameters
+	----------
+	im : array_like
+		Image data (sinogram) as numpy array.
 
-    ext : bool
-        True if the extended FOV mode has been performed.
-
-    ext_fov_rot_right : bool
-        True if the extended FOV mode has been performed with rotation center
+	ext_fov_rot_right : bool
+		True if the extended FOV mode has been performed with rotation center
 		shifted to the right, left otherwise.
 
 	ext_fov_overlap : int
 		Number of overlapping pixels.        
-    
-    """
-	if (ext_fov):
+		
+	ext_fov_normalize : bool
+		True to apply line-by-line normalization taking into account the overlap area.
+		
+	ext_fov_average : bool
+		True to consider the average of the whole overlap, false to apply basic half-half
+		sticking.
+	
+	"""
+	# Force to floating point (an average process is applied):
+	im = im.astype(float32)
+
+	# Correction factor for odd/even shape:
+	if (im.shape[0] % 2 == 0): 
+		corr = 0
+	else:
+		corr = 1
+
+	# Flip the bottom part of the sinogram:
+	im_bottom = im[im.shape[0] / 2:,:]
+	im_bottom = fliplr(im_bottom).astype(float32)	
 			
-		im_bottom = im[im.shape[0]/2:,:]
-		im_bottom = fliplr(im_bottom)	
+	if (ext_fov_rot_right):
+		
+		im_overlap_1 = im_bottom[:,-ext_fov_overlap:]
+		im_overlap_2 = im[0:im.shape[0] / 2 + corr, 0:ext_fov_overlap]		
 			
-		if (ext_fov_rot_right):
-				
-			# Flip the bottom part of the sinogram and put it on the left:					
-			if (ext_fov_overlap % 2 == 0):
-				im_bottom = im_bottom[:,:-ext_fov_overlap/2]
-				if (im.shape[0] % 2 == 0):
-					im = concatenate((im_bottom, im[0:im.shape[0]/2,ext_fov_overlap/2:]), axis=1)				
-				else:
-					im = concatenate((im_bottom, im[0:im.shape[0]/2+1,ext_fov_overlap/2:]), axis=1)
-			else:
-				im_bottom = im_bottom[:,:-ext_fov_overlap/2 + 1]
-				if (im.shape[0] % 2 == 0):
-					im = concatenate((im_bottom, im[0:im.shape[0]/2,ext_fov_overlap/2:]), axis=1)				
-				else:
-					im = concatenate((im_bottom, im[0:im.shape[0]/2+1,ext_fov_overlap/2:]), axis=1)				
+		if (ext_fov_normalize):
+			# Use the overlap area for a line-by-line normalization:
+			norm_coeff = median(im_overlap_1, axis=1) / (median(im_overlap_2, axis=1) + finfo(float32).eps)
+			norm_coeff = tile(norm_coeff, (im_bottom.shape[1],1))
+			im_bottom = im_bottom / (norm_coeff.T)
 			
+		if (ext_fov_average):
+			# Concatenate with the average of the overlap area:
+			im_overlap = (im_overlap_1 + im_overlap_2) / 2.0
+			tmp = concatenate((im_bottom[:,:-ext_fov_overlap], im_overlap), axis=1)	
+			im = concatenate((tmp, im[0:im.shape[0] / 2 + corr, ext_fov_overlap:]), axis=1)	
 		else:
+			# Concatenate the flipped part of the sinogram on the left:								
+			im = concatenate((im_bottom[:,:-ext_fov_overlap / 2], im[0:im.shape[0] / 2 + corr,ext_fov_overlap / 2:]), axis=1)
+			
+	else:
+		
+		im_overlap_1 = im_bottom[:,0:ext_fov_overlap]
+		im_overlap_2 = im[0:im.shape[0] / 2 + corr, -ext_fov_overlap:]
+					
+		if (ext_fov_normalize):
+			# Use the overlap area for a line-by-line normalization:		
+			norm_coeff = median(im_overlap_1, axis=1) / (median(im_overlap_2, axis=1) + finfo(float32).eps)
+			norm_coeff = tile(norm_coeff, (im_bottom.shape[1],1))
+			im_bottom = im_bottom / (norm_coeff.T)
 
-			# Flip the bottom part of the sinogram and put it on the right:					
-			if (ext_fov_overlap % 2 == 0):
-				im_bottom = im_bottom[:,ext_fov_overlap/2:]			
-				if (im.shape[0] % 2 == 0):						
-					im = concatenate((im[0:im.shape[0]/2,:-ext_fov_overlap/2], im_bottom), axis=1)	
-				else:
-					im = concatenate((im[0:im.shape[0]/2+1,:-ext_fov_overlap/2], im_bottom), axis=1)							
-			else:
-				im_bottom = im_bottom[:,ext_fov_overlap/2+1:]
-				if (im.shape[0] % 2 == 0):
-					im = concatenate((im[0:im.shape[0]/2,:-ext_fov_overlap/2], im_bottom), axis=1)									
-				else:
-					im = concatenate((im[0:im.shape[0]/2+1,:-ext_fov_overlap/2], im_bottom), axis=1)
+		if (ext_fov_average):
+			# Concatenate with the average of the overlap area:
+			im_overlap = (im_overlap_1 + im_overlap_2) / 2.0
+			tmp = concatenate((im[0:im.shape[0] / 2 + corr, 0:-ext_fov_overlap], im_overlap), axis=1)	
+			im = concatenate((tmp, im_bottom[:,ext_fov_overlap:]), axis=1)			
+		else:
+			# Concatenate the flipped part of the sinogram on the right:											
+			im = concatenate((im[0:im.shape[0] / 2 + corr,:-ext_fov_overlap / 2], im_bottom[:,ext_fov_overlap / 2:]), axis=1)				
 
-	return im
+	return im.astype(float32)
