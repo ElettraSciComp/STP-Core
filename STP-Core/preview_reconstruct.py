@@ -341,7 +341,7 @@ def process(sino_idx, num_sinos, infile, outfile, preprocessing_required, corr_p
 					im = flat_fielding(im, sino_idx, corr_plan, flat_end, half_half, half_half_line / decim_factor, 
 								norm_sx, norm_dx).astype(float32)	
 			if ext_fov:	
-				im = extfov_correction(im, ext_fov_rot_right, ext_fov_overlap, ext_fov_normalize, ext_fov_average)
+				im = extfov_correction(im, ext_fov_rot_right, ext_fov_overlap / downsc_factor, ext_fov_normalize, ext_fov_average)
 			if not skipflat and not dynamic_ff:
 				im = ring_correction(im, ringrem, flat_end, corr_plan['skip_flat_after'], half_half, 
 								half_half_line / decim_factor, ext_fov)

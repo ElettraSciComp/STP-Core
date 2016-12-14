@@ -74,7 +74,7 @@ def write_log(lock, fname, logfilename):
 
 def reconstruct(im, angles, offset, logtransform, param1, circle, scale, pad, method, 
 				zerone_mode, dset_min, dset_max, corr_offset, postprocess_required, convert_opt, 
-			    crop_opt, start, end, outpath, sino_idx, downsc_factor, decim_factor, logfilename, lock, slice_prefix):
+				crop_opt, start, end, outpath, sino_idx, downsc_factor, decim_factor, logfilename, lock, slice_prefix):
 	"""Reconstruct a sinogram with FBP algorithm (from ASTRA toolbox).
 
 	Parameters
@@ -218,8 +218,8 @@ def reconstruct(im, angles, offset, logtransform, param1, circle, scale, pad, me
 
 		
 def process(sino_idx, num_sinos, infile, outpath, preprocessing_required, corr_plan, norm_sx, norm_dx, flat_end, half_half, 
-			half_half_line, ext_fov, ext_fov_rot_right, ext_fov_overlap, ringrem, phaseretrieval_required, phrtmethod, 
-			phrt_param1, phrt_param2, 
+			half_half_line, ext_fov, ext_fov_rot_right, ext_fov_overlap, ext_fov_normalize, ext_fov_average,
+			ringrem, phaseretrieval_required, phrtmethod, phrt_param1, phrt_param2, 
 			energy, distance, pixsize, phrtpad, approx_win, angles, offset, logtransform, param1, circle, scale, pad, method, 
 			zerone_mode, dset_min, dset_max, decim_factor, downsc_factor, corr_offset, postprocess_required, convert_opt, 
 			crop_opt, nr_threads, angles_from, angles_to, logfilename, lock, slice_prefix):
@@ -264,7 +264,8 @@ def process(sino_idx, num_sinos, infile, outpath, preprocessing_required, corr_p
 		if (preprocessing_required):
 			test_im = flat_fielding (test_im, zrange[0]/downsc_factor, corr_plan, flat_end, half_half, 
 										half_half_line/decim_factor, norm_sx, norm_dx).astype(float32)	
-			test_im = extfov_correction (test_im, ext_fov, ext_fov_rot_right, ext_fov_overlap/downsc_factor).astype(float32)			
+			if ext_fov:
+				test_im = extfov_correction (test_im, ext_fov_rot_right, ext_fov_overlap/downsc_factor, ext_fov_normalize, ext_fov_average).astype(float32)			
 			test_im = ring_correction (test_im, ringrem, flat_end, corr_plan['skip_flat_after'], half_half, 
 											half_half_line/decim_factor, ext_fov).astype(float32)	
 		
@@ -282,7 +283,8 @@ def process(sino_idx, num_sinos, infile, outpath, preprocessing_required, corr_p
 			if (preprocessing_required):
 				test_im = flat_fielding (test_im, zrange[ct]/downsc_factor, corr_plan, flat_end, half_half, 
 											half_half_line/decim_factor, norm_sx, norm_dx).astype(float32)	
-				test_im = extfov_correction (test_im, ext_fov, ext_fov_rot_right, ext_fov_overlap/downsc_factor).astype(float32)	
+				if ext_fov:
+					test_im = extfov_correction (test_im, ext_fov_rot_right, ext_fov_overlap/downsc_factor, ext_fov_normalize, ext_fov_average).astype(float32)			
 				test_im = ring_correction (test_im, ringrem, flat_end, corr_plan['skip_flat_after'], half_half, 
 											half_half_line/decim_factor, ext_fov).astype(float32)	
 			
@@ -333,7 +335,8 @@ def process(sino_idx, num_sinos, infile, outpath, preprocessing_required, corr_p
 		if (preprocessing_required):
 			im = flat_fielding (im, sino_idx, corr_plan, flat_end, half_half, half_half_line/decim_factor, 
 								norm_sx, norm_dx).astype(float32)		
-			im = extfov_correction (im, ext_fov, ext_fov_rot_right, ext_fov_overlap)
+			if ext_fov:
+				test_im = extfov_correction (test_im, ext_fov_rot_right, ext_fov_overlap/downsc_factor, ext_fov_normalize, ext_fov_average).astype(float32)			
 			im = ring_correction (im, ringrem, flat_end, corr_plan['skip_flat_after'], half_half, 
 								half_half_line/decim_factor, ext_fov)
 
@@ -399,8 +402,8 @@ def main(argv):
 		
 	ext_fov = True if argv[14] == "True" else False
 		
-	norm_sx = int(argv[17])
-	norm_dx = int(argv[18])	
+	norm_sx = int(argv[19])
+	norm_dx = int(argv[20])	
 		
 	ext_fov_rot_right = argv[15]
 	if ext_fov_rot_right == "True":
@@ -413,46 +416,49 @@ def main(argv):
 			norm_dx = 0
 		
 	ext_fov_overlap = int(argv[16])
+
+	ext_fov_normalize = True if argv[17] == "True" else False
+	ext_fov_average = True if argv[18] == "True" else False
 		
-	skip_ringrem = True if argv[19] == "True" else False
-	ringrem = argv[20]
+	skip_ringrem = True if argv[21] == "True" else False
+	ringrem = argv[22]
 	
 	# Extra reconstruction parameters:
-	zerone_mode = True if argv[21] == "True" else False		
-	corr_offset = float(argv[22])
+	zerone_mode = True if argv[23] == "True" else False		
+	corr_offset = float(argv[24])
 		
-	reconmethod = argv[23]	
+	reconmethod = argv[25]	
 	
-	decim_factor = int(argv[24])
-	downsc_factor = int(argv[25])
+	decim_factor = int(argv[26])
+	downsc_factor = int(argv[27])
 	
 	# Parameters for postprocessing:
-	postprocess_required = True if argv[26] == "True" else False
-	convert_opt = argv[27]
-	crop_opt = argv[28]
+	postprocess_required = True if argv[28] == "True" else False
+	convert_opt = argv[29]
+	crop_opt = argv[30]
 
 	# Parameters for on-the-fly phase retrieval:
-	phaseretrieval_required = True if argv[29] == "True" else False		
-	phrtmethod = int(argv[30])
-	phrt_param1 = double(argv[31])   # param1( e.g. regParam, or beta)
-	phrt_param2 = double(argv[32])   # param2( e.g. thresh or delta)
-	energy = double(argv[33])
-	distance = double(argv[34])    
-	pixsize = double(argv[35]) / 1000.0 # pixsixe from micron to mm:	
-	phrtpad = True if argv[36] == "True" else False
-	approx_win = int(argv[37])	
+	phaseretrieval_required = True if argv[31] == "True" else False		
+	phrtmethod = int(argv[32])
+	phrt_param1 = double(argv[33])   # param1( e.g. regParam, or beta)
+	phrt_param2 = double(argv[34])   # param2( e.g. thresh or delta)
+	energy = double(argv[35])
+	distance = double(argv[36])    
+	pixsize = double(argv[37]) / 1000.0 # pixsixe from micron to mm:	
+	phrtpad = True if argv[38] == "True" else False
+	approx_win = int(argv[39])	
 
-	preprocessingplan_fromcache = True if argv[38] == "True" else False
-	tmppath    = argv[39]	
+	preprocessingplan_fromcache = True if argv[40] == "True" else False
+	tmppath    = argv[41]	
 	if not tmppath.endswith(sep): tmppath += sep
 
-	nr_threads = int(argv[40])	
-	angles_from = float(argv[41])
-	angles_to   = float(argv[42])
+	nr_threads = int(argv[42])	
+	angles_from = float(argv[43])
+	angles_to   = float(argv[44])
 
-	slice_prefix = argv[43]
+	slice_prefix = argv[45]
 		
-	logfilename = argv[44]	
+	logfilename = argv[46]	
 
 	if not exists(outpath):
 		makedirs(outpath)
@@ -533,7 +539,8 @@ def main(argv):
 
 	# Run computation:	
 	process( sino_idx, num_sinos, infile, outpath, preprocessing_required, corrplan, norm_sx, 
-			norm_dx, flat_end, half_half, half_half_line, ext_fov, ext_fov_rot_right, ext_fov_overlap, ringrem, 
+			norm_dx, flat_end, half_half, half_half_line, ext_fov, ext_fov_rot_right, ext_fov_overlap, 
+			ext_fov_normalize, ext_fov_average, ringrem, 
 			phaseretrieval_required, phrtmethod, phrt_param1, phrt_param2, energy, distance, pixsize, phrtpad, 
 			approx_win, angles, offset, logtrsf, param1, circle, scale, overpad, reconmethod, zerone_mode, 
 			dset_min, dset_max, decim_factor, downsc_factor, corr_offset, postprocess_required, convert_opt, 
