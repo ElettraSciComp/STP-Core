@@ -53,7 +53,7 @@ def tiehom_plan(im, beta, delta, energy, distance, pixsize, padding):
 		Immaginary part of the complex X-ray refraction index.
 
 	delta : double
-		Decrement from unity of the complex X-ray refraction index.
+		Decrement from unity of the real part of the complex X-ray refraction index.
 
 	energy [KeV]: double
 		Energy in KeV of the incident X-ray beam.
