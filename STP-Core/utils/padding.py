@@ -160,7 +160,7 @@ def padImage(im, n_pad0, n_pad1):
 	marg1 = (n_pad1 - im.shape[1]) / 2
 	marg1 = marg1 / 2
 	
-	# First replicate padding and then zero padding:
+	# First replicate padding:
 	im = replicatePadImage(im, marg0, marg1)
 	im = replicatePadImage(im, marg0, marg1)
 		
@@ -168,6 +168,7 @@ def padImage(im, n_pad0, n_pad1):
 	marg0 = n_pad0 - im.shape[0]
 	marg1 = n_pad1 - im.shape[1] 
 		
+	# Now zero padding:
 	tmp = zeros(im[im.shape[0]-1,:].shape) # Get last row:
 	tmp = tile(tmp, (marg0,1)) # Create a tmp matrix replicating the last row the right number of times
 	im = concatenate( (im,tmp), axis=0) # Concatenate tmp after the image

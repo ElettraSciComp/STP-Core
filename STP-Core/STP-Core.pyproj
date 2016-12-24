@@ -17,7 +17,7 @@
     </InterpreterArguments>
     <EnableNativeCodeDebugging>False</EnableNativeCodeDebugging>
     <InterpreterPath>C:\Users\Franz\Documents\Visual Studio 2012\Projects\STP-Gui\STP-Gui\bin\x64\Release\python\python-2.7.10.amd64\python.exe</InterpreterPath>
-    <CommandLineArguments>350 "C:\Temp\B_step_go_half360.tdf" "C:\Temp\20161212222023085\20161212222857438" 3.14159265358979 0 shepp-logan 1 False True False True True True 400 True True 426 False True 0 0 False "rivers:3;0" False 0 FBP_CUDA 1 1 False linear8:-0.01;0.01 0:0:0:0 False 0 1E-10 1E-07 22 150 2.2 False 16 0 1799 True 0 True False 1 "C:\Temp\20161212222023085" "C:\Temp\20161212222023085\_rec_log_00.txt"</CommandLineArguments>
+    <CommandLineArguments>350 "C:\Temp\B_step_go_half360.tdf" "C:\Temp\20161224173851037\20161224174022472" 3.14159265358979 0 shepp-logan 1 False True False True True True 900 True True 426 False False 0 51 False "rivers:3;0" False 0 FBP_CUDA 1 1 False linear8:-0.01;0.01 0:0:0:0 False 0 1E-10 2E-07 22 150 2.2 False 16 0 1799 True 0 True False 1 "C:\Temp\20161224173851037" "C:\Temp\20161224173851037\_rec_log_00.txt"</CommandLineArguments>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
     <DebugSymbols>true</DebugSymbols>

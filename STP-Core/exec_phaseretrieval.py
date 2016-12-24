@@ -81,14 +81,14 @@ def _process(lock, int_from, int_to, infile, outfile, outshape, outtype, method,
 			dset = f_in['exchange/data']
 		im = tdf.read_tomo(dset,i).astype(float32)		
 		f_in.close()
-		t1 = time() 		
+		t1 = time() 
 
 		# Perform phase retrieval (first time also PyFFTW prepares a plan):		
 		if (method == 0):
 			im = tiehom(im, plan).astype(float32)			
 		else:
 			im = phrt(im, plan, method).astype(float32)			
-		t2 = time() 		
+		t2 = time() 	
 								
 		# Save processed image to HDF5 file (atomic procedure - lock used):
 		_write_data(lock, im, i, outfile, outshape, outtype, logfilename, t2 - t1, t1 - t0)

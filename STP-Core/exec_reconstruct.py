@@ -103,8 +103,8 @@ def reconstruct(im, angles, offset, logtransform, param1, circle, scale, pad, me
 	im_f = im.astype(float32)
 
 	# Decimate projections if required:
-	if decim_factor > 1:
-		im_f = im_f[::decim_factor,:]	
+	#if decim_factor > 1:
+	#	im_f = im_f[::decim_factor,:]	
 	
 	# Upscale projections (if required):
 	if (abs(scale - 1.0) > finfo(float32).eps):		
@@ -129,8 +129,8 @@ def reconstruct(im, angles, offset, logtransform, param1, circle, scale, pad, me
 			im_f = concatenate((im_f,tmp.T), axis=1) # Concatenate tmp after the image	
 	
 	# Downscale projections (without pixel averaging):
-	if downsc_factor > 1:
-		im_f = im_f[:,::downsc_factor]	
+	#if downsc_factor > 1:
+	#	im_f = im_f[:,::downsc_factor]	
 		
 	# Sinogram rolling (if required).  It doesn't make sense in limited angle tomography, so check if 180 or 360:
 	if ((rolling == True) and (roll_shift > 0)):
@@ -172,7 +172,11 @@ def reconstruct(im, angles, offset, logtransform, param1, circle, scale, pad, me
 	elif (method == 'MR-FBP_CUDA'):
 		im_f = recon_mr_fbp(im_f, angles)
 	elif (method == 'FISTA-TV_CUDA'):
-		im_f = recon_fista_tv(im_f, angles, param1, 100, 100)
+		lam, fgpiter, tviter = param1.split(":")    
+		lam = float32(lam) 
+		fgpiter = int(fgpiter) 
+		tviter = int(tviter)
+		im_f = recon_fista_tv(im_f, angles, lam, fgpiter, tviter)
 	else:
 		im_f = recon_astra_iterative(im_f, angles, method, param1, zerone_mode)	
 
@@ -235,9 +239,9 @@ def reconstruct_gridrec(im1, im2, angles, offset, logtransform, param1, circle, 
 	im_f2 = im2.astype(float32)   
 
 	# Decimate projections if required:
-	if decim_factor > 1:
-		im_f1 = im_f1[::decim_factor,:]	
-		im_f2 = im_f2[::decim_factor,:]
+	#if decim_factor > 1:
+	#	im_f1 = im_f1[::decim_factor,:]	
+	#	im_f2 = im_f2[::decim_factor,:]
 	
 	# Upscale projections (if required):
 	if (abs(scale - 1.0) > finfo(float32).eps):		
@@ -275,9 +279,9 @@ def reconstruct_gridrec(im1, im2, angles, offset, logtransform, param1, circle, 
 			im_f2 = concatenate((im_f2,tmp.T), axis=1) # Concatenate tmp after the image	
 	
 	# Downscale projections (without pixel averaging):
-	if downsc_factor > 1:
-		im_f1 = im_f1[:,::downsc_factor]			
-		im_f2 = im_f2[:,::downsc_factor]	
+	#if downsc_factor > 1:
+	#	im_f1 = im_f1[:,::downsc_factor]			
+	#	im_f2 = im_f2[:,::downsc_factor]	
 
 	# Sinogram rolling (if required).  It doesn't make sense in limited angle tomography, so check if 180 or 360:
 	if ((rolling == True) and (roll_shift > 0)):
@@ -391,9 +395,9 @@ def process_gridrec(lock, int_from, int_to, num_sinos, infile, outpath, preproce
 			dset = f_in['tomo']
 		else: 
 			dset = f_in['exchange/data']
-		im1 = tdf.read_sino(dset,i).astype(float32)		
-		if ( (i + 1) <= (int_to + 1) ):
-			im2 = tdf.read_sino(dset,i + 1).astype(float32)		
+		im1 = tdf.read_sino(dset,i*downsc_factor).astype(float32)		
+		if ( (i + downsc_factor) <= (int_to + 1) ):
+			im2 = tdf.read_sino(dset,i*downsc_factor + downsc_factor).astype(float32)		
 		else:
 			im2 = im1
 		f_in.close()
@@ -402,7 +406,12 @@ def process_gridrec(lock, int_from, int_to, num_sinos, infile, outpath, preproce
 
 		# Apply projection removal (if required):
 		im1 = im1[angles_projfrom:angles_projto, :]				
-		im2 = im2[angles_projfrom:angles_projto, :]				
+		im2 = im2[angles_projfrom:angles_projto, :]	
+		
+		# Apply decimation and downscaling (if required):
+		im1 = im1[::decim_factor,::downsc_factor]
+		im2 = im2[::decim_factor,::downsc_factor]
+		#i = i / downsc_factor				
 			
 		# Perform the preprocessing of the sinograms (if required):
 		if (preprocessing_required):
@@ -411,30 +420,32 @@ def process_gridrec(lock, int_from, int_to, num_sinos, infile, outpath, preproce
 					# Dynamic flat fielding with downsampling = 2:
 					im1 = dynamic_flat_fielding(im1, i, EFF, filtEFF, 2, im_dark, norm_sx, norm_dx)
 				else:
-					im1 = flat_fielding (im1, i, corr_plan, flat_end, half_half, half_half_line, norm_sx, norm_dx).astype(float32)		
+					im1 = flat_fielding (im1, i, corr_plan, flat_end, half_half, half_half_line / decim_factor, norm_sx, norm_dx).astype(float32)		
 			if ext_fov:
-				im1 = extfov_correction (im1, ext_fov_rot_right, ext_fov_overlap, ext_fov_normalize, ext_fov_average)
+				im1 = extfov_correction (im1, ext_fov_rot_right, ext_fov_overlap / downsc_factor, ext_fov_normalize, ext_fov_average)
 			if not skipflat:
-				im1 = ring_correction (im1, ringrem, flat_end, corr_plan['skip_flat_after'], half_half, half_half_line, ext_fov)
+				im1 = ring_correction (im1, ringrem, flat_end, corr_plan['skip_flat_after'], half_half, 
+						   half_half_line / decim_factor, ext_fov)
 			else:
-				im1 = ring_correction (im1, ringrem, False, False, half_half, half_half_line, ext_fov)
+				im1 = ring_correction (im1, ringrem, False, False, half_half, half_half_line / decim_factor, ext_fov)
 
 			if not skipflat:
 				if dynamic_ff:
 					# Dynamic flat fielding with downsampling = 2:
-					im2 = dynamic_flat_fielding(im2, i, EFF, filtEFF, 2, im_dark, norm_sx, norm_dx)
+					im2 = dynamic_flat_fielding(im2, i + 1, EFF, filtEFF, 2, im_dark, norm_sx, norm_dx)
 				else:
-					im2 = flat_fielding (im2, i + 1, corr_plan, flat_end, half_half, half_half_line, norm_sx, norm_dx).astype(float32)	
+					im2 = flat_fielding (im2, i + 1, corr_plan, flat_end, half_half, half_half_line / decim_factor, norm_sx, norm_dx).astype(float32)	
 			if ext_fov:	
-				im2 = extfov_correction (im2, ext_fov_rot_right, ext_fov_overlap, ext_fov_normalize, ext_fov_average)
+				im2 = extfov_correction (im2, ext_fov_rot_right, ext_fov_overlap / downsc_factor, ext_fov_normalize, ext_fov_average)
 			if not skipflat and not dynamic_ff:		
-				im2 = ring_correction (im2, ringrem, flat_end, corr_plan['skip_flat_after'], half_half, half_half_line, ext_fov)
+				im2 = ring_correction (im2, ringrem, flat_end, corr_plan['skip_flat_after'], half_half, 
+						   half_half_line / decim_factor, ext_fov)
 			else:
 				im2 = ring_correction (im2, ringrem, False, False, half_half, half_half_line, ext_fov)
 		
 
 		# Actual reconstruction:
-		[im1, im2] = reconstruct_gridrec(im1, im2, angles, offset, logtransform, param1, circle, scale, pad, rolling, roll_shift,
+		[im1, im2] = reconstruct_gridrec(im1, im2, angles, offset / downsc_factor, logtransform, param1, circle, scale, pad, rolling, roll_shift,
 						zerone_mode, dset_min, dset_max, decim_factor, downsc_factor, corr_offset)					
 
 		# Appy post-processing (if required):
@@ -549,12 +560,16 @@ def process(lock, int_from, int_to, num_sinos, infile, outpath, preprocessing_re
 			dset = f_in['tomo']
 		else: 
 			dset = f_in['exchange/data']
-		im = tdf.read_sino(dset,i).astype(float32)		
+		im = tdf.read_sino(dset,i*downsc_factor).astype(float32)		
 		f_in.close()
 		t1 = time() 	
 
 		# Apply projection removal (if required):
-		im = im[angles_projfrom:angles_projto, :]				
+		im = im[angles_projfrom:angles_projto, :]	
+		
+		# Apply decimation and downscaling (if required):
+		im = im[::decim_factor,::downsc_factor]
+		#i = i / downsc_factor				
 			
 		# Perform the preprocessing of the sinogram (if required):
 		if (preprocessing_required):
@@ -563,17 +578,17 @@ def process(lock, int_from, int_to, num_sinos, infile, outpath, preprocessing_re
 					# Dynamic flat fielding with downsampling = 2:
 					im = dynamic_flat_fielding(im, i, EFF, filtEFF, 2, im_dark, norm_sx, norm_dx).astype(float32)
 				else:
-					im = flat_fielding (im, i, corr_plan, flat_end, half_half, half_half_line, norm_sx, norm_dx).astype(float32)	
+					im = flat_fielding (im, i, corr_plan, flat_end, half_half, half_half_line / decim_factor, norm_sx, norm_dx).astype(float32)	
 			if ext_fov:	
-				im = extfov_correction (im, ext_fov_rot_right, ext_fov_overlap, ext_fov_normalize, ext_fov_average)
+				im = extfov_correction (im, ext_fov_rot_right, ext_fov_overlap / downsc_factor, ext_fov_normalize, ext_fov_average)
 			if not skipflat and not dynamic_ff:
-				im = ring_correction (im, ringrem, flat_end, corr_plan['skip_flat_after'], half_half, half_half_line, ext_fov)
+				im = ring_correction (im, ringrem, flat_end, corr_plan['skip_flat_after'], half_half, half_half_line / decim_factor, ext_fov)
 			else:
 				im = ring_correction (im, ringrem, False, False, half_half, half_half_line, ext_fov)
 		
 
 		# Actual reconstruction:
-		im = reconstruct(im, angles, offset, logtransform, param1, circle, scale, pad, method, rolling, roll_shift,
+		im = reconstruct(im, angles, offset / downsc_factor, logtransform, param1, circle, scale, pad, method, rolling, roll_shift,
 						zerone_mode, dset_min, dset_max, decim_factor, downsc_factor, corr_offset).astype(float32)			
 		
 		# Apply post-processing (if required):
@@ -698,7 +713,7 @@ def main(argv):
 	angles_projto = int(argv[34])
 
 	rolling = True if argv[35] == "True" else False
-	roll_shift = int(argv[36])
+	roll_shift = int(int(argv[36]) / decim_factor)
 
 	dynamic_ff 	= True if argv[37] == "True" else False
 	
@@ -752,8 +767,8 @@ def main(argv):
 		exit()		
 
 	# Check extrema (int_to == -1 means all files):
-	if ((int_to >= num_sinos) or (int_to == -1)):
-		int_to = num_sinos - 1
+	if ((int_to >= num_sinos / downsc_factor) or (int_to == -1)):
+		int_to = num_sinos / downsc_factor - 1
 		
 	# Log info:
 	log = open(logfilename,"w")

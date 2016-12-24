@@ -30,9 +30,10 @@ from numpy import copy, meshgrid, real
 from numpy import pi, log as nplog, cos as npcos, sin as npsin
 
 # (Un)comment the related lines to use either NumPY or PyFFTW:
-#from numpy.fft import fft2, ifft2
+#from numpy.fft import rfft2, irfft2
 from pyfftw import n_byte_align, simd_alignment
-from pyfftw.interfaces.numpy_fft import fft2, ifft2
+#from pyfftw.interfaces.numpy_fft import fft2, ifft2
+from pyfftw.interfaces.numpy_fft import rfft2, irfft2
 from numpy.fft import fftshift, ifftshift
 from warnings import simplefilter
 
@@ -71,7 +72,7 @@ def tiehom_plan(im, beta, delta, energy, distance, pixsize, padding):
 	lam = (12.398424 * 10 ** (-7)) / energy # in mm
 	mu = 4 * pi * beta / lam
 		
-	# Replicate pad image to power-of-2 dimensions:
+	# Replicate pad image if required:
 	dim0_o = im.shape[0]
 	dim1_o = im.shape[1]
 	if (padding):		
@@ -81,21 +82,29 @@ def tiehom_plan(im, beta, delta, energy, distance, pixsize, padding):
 		n_pad0 = dim0_o
 		n_pad1 = dim1_o
 
+	# Ensure even size:
+	if (n_pad0 % 2 == 1):
+		n_pad0 = n_pad0 + 1
+	if (n_pad1 % 2 == 1):
+		n_pad1 = n_pad1 + 1
+
 	# Set the transformed frequencies according to pixelsize:
 	rows = n_pad0
 	cols = n_pad1
 	ulim = arange(-(cols) / 2, (cols) / 2)
 	ulim = ulim * (2 * pi / (cols * pixsize))
-	vlim = arange(-(rows) / 2, (rows) / 2)  
+	vlim = arange(-(rows) / 2, (rows) / 2)
 	vlim = vlim * (2 * pi / (rows * pixsize))
 	u,v = meshgrid(ulim, vlim)
 
 	# Apply formula:
-	den = 1 + distance * delta / mu * (u * u + v * v) + finfo(float32).eps # Avoids division by zero		
+	den = 1 + distance * delta / mu * (u * u + v * v) + finfo(float32).eps # Avoids division by zero
 
-	# Shift the denominator:
-	den = fftshift(den)
-
+	# Shift the denominator and get only real components (half of the
+	# frequencies):
+	den = fftshift(den)	
+	den = den[:,0:den.shape[1] / 2 + 1] 
+	
 	return {'dim0':dim0_o, 'dim1':dim1_o ,'npad0':n_pad0, 'npad1':n_pad1, 'den':den , 'mu':mu }
 	
 
@@ -123,31 +132,30 @@ def tiehom(im, plan, nr_threads=2):
 	marg1 = (n_pad1 - dim1_o) / 2
 	den = plan['den']
 	mu = plan['mu']
-	
+
 	# Pad image (if required):	
-	im  = padImage(im, n_pad0, n_pad1) 
+	im = padImage(im, n_pad0, n_pad1) 
 
 	# (Un)comment the following two lines to use PyFFTW:
 	n_byte_align(im, simd_alignment) 
-	im = fft2(im, threads=nr_threads)			
+	im = rfft2(im, threads=nr_threads)			
 
-	# (Un)comment the following line to use NumPy:	
-	#im = fft2(im)			
+	# (Un)comment the following line to use NumPy:
+	#im = rfft2(im)
 
 	# Apply Paganin's (pre-computed) formula:
 	im = im / den
 		
 	# (Un)comment the following two lines to use PyFFTW:
 	n_byte_align(im, simd_alignment)
-	im = ifft2(im, threads=nr_threads)
+	im = irfft2(im, threads=nr_threads)
 		
 	# (Un)comment the following line to use NumPy:
-	#im = ifft2(im)
-	im = im.astype(complex64)
-		 		
-	im = real(im)
+	#im = irfft2(im)
+				
 	im = im.astype(float32)		
 	im = -1 / mu * nplog(im)    		
 
 	# Return cropped output:
-	return im[marg0:dim0_o + marg0, marg1:dim1_o + marg1]   
+	return im[marg0:dim0_o + marg0, marg1:dim1_o + marg1] 
+

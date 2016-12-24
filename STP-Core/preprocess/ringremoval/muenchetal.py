@@ -116,7 +116,7 @@ def _sijberspostnov(im, args):
 				loc_art = matrix[1,:]
 			else:
 				loc_art = zeros(winsize)
-		   
+
 		# Determine global artifact correction vector:
 		for k in range(0, winsize):
 			if (matrix.shape[0] > prevsize):

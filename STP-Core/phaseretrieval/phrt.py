@@ -99,6 +99,12 @@ def phrt_plan (im, energy, distance, pixsize, regpar, thresh, method, padding):
 		n_pad0 = dim0_o
 		n_pad1 = dim1_o
 
+	# Ensure even size:
+	if (n_pad0 % 2 == 1):
+		n_pad0 = n_pad0 + 1
+	if (n_pad1 % 2 == 1):
+		n_pad1 = n_pad1 + 1
+
 	# Create coordinates grid:
 	xi  = concatenate((arange(0, ceil((n_pad1 - 1)/2.0) + 1) , arange(-(floor((n_pad1 - 1)/2.0)),0)), axis=1) / n_pad1 
 	eta = concatenate((arange(0, ceil((n_pad0 - 1)/2.0) + 1) , arange(-(floor((n_pad0 - 1)/2.0)),0)), axis=1) / n_pad0

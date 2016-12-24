@@ -30,7 +30,7 @@ from numpy import exp, real, copy, zeros, ones, pad, ComplexWarning, hanning
 from numpy import tile, concatenate
 #from numpy.fft import fft2, ifft2
 from pyfftw import n_byte_align, simd_alignment
-from pyfftw.interfaces.numpy_fft import fft2, ifft2
+from pyfftw.interfaces.numpy_fft import rfft2, irfft2
 
 from warnings import simplefilter
 
@@ -113,7 +113,7 @@ def raven(im, args):
 
 	# Compute FFT:
 	n_byte_align(im, simd_alignment) 
-	im = fft2(im, threads=2)
+	im = rfft2(im, threads=2)
 
 	# Prepare the frequency coordinates:
 	u = arange(0, im.shape[0], dtype=float32)
@@ -141,7 +141,8 @@ def raven(im, args):
 
 	# Compute inverse FFT of the filtered data:
 	n_byte_align(im, simd_alignment)
-	im = real(ifft2(im, threads=2))
+	#im = real(irfft2(im, threads=2))
+	im = irfft2(im, threads=2)
 
 	# Crop image:
 	im = im[im.shape[0] / 4:(im.shape[0] / 4 + marg[0]), im.shape[1] / 4:(im.shape[1] / 4 + marg[1])]

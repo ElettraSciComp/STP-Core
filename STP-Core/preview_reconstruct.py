@@ -147,7 +147,11 @@ def reconstruct(im, angles, offset, logtransform, recpar, circle, scale, pad, me
 	elif (method == 'MR-FBP_CUDA'):
 		im = recon_mr_fbp(im, angles)
 	elif (method == 'FISTA-TV_CUDA'):
-		im = recon_fista_tv(im, angles, recpar, 60, 60)
+		lam, fgpiter, tviter = recpar.split(":")    
+		lam = float32(lam) 
+		fgpiter = int(fgpiter) 
+		tviter = int(tviter)
+		im = recon_fista_tv(im, angles, lam, fgpiter, tviter)
 	elif (method == 'GRIDREC'):
 		[im, im] = recon_gridrec(im, im, angles, recpar)	
 	else:
@@ -221,7 +225,7 @@ def process(sino_idx, num_sinos, infile, outfile, preprocessing_required, corr_p
 			zrange = zrange[0:approx_win]
 		
 		# Read one sinogram to get the proper dimensions:
-		test_im = tdf.read_sino(dset, zrange[0]).astype(float32)	
+		test_im = tdf.read_sino(dset, zrange[0]*downsc_factor).astype(float32)	
 
 		# Apply projection removal (if required):
 		test_im = test_im[angles_projfrom:angles_projto, :]
@@ -235,9 +239,12 @@ def process(sino_idx, num_sinos, infile, outfile, preprocessing_required, corr_p
 			if not skipflat:			
 				if dynamic_ff:
 					# Dynamic flat fielding with downsampling = 2:
-					test_im = dynamic_flat_fielding(test_im, zrange[0] / downsc_factor, EFF, filtEFF, 2, im_dark, norm_sx, norm_dx)
+					#test_im = dynamic_flat_fielding(test_im, zrange[0] / downsc_factor, EFF, filtEFF, 2, im_dark, norm_sx, norm_dx)
+					test_im = dynamic_flat_fielding(test_im, zrange[0] , EFF, filtEFF, 2, im_dark, norm_sx, norm_dx)
 				else:
-					test_im = flat_fielding(test_im, zrange[0] / downsc_factor, corr_plan, flat_end, half_half, 
+					#test_im = flat_fielding(test_im, zrange[0] / downsc_factor, corr_plan, flat_end, half_half, 
+					#						half_half_line / decim_factor, norm_sx, norm_dx).astype(float32)
+					test_im = flat_fielding(test_im, zrange[0], corr_plan, flat_end, half_half, 
 											half_half_line / decim_factor, norm_sx, norm_dx).astype(float32)
 			if ext_fov:
 				test_im = extfov_correction(test_im, ext_fov_rot_right, ext_fov_overlap / downsc_factor, ext_fov_normalize, ext_fov_average).astype(float32)			
@@ -256,7 +263,7 @@ def process(sino_idx, num_sinos, infile, outfile, preprocessing_required, corr_p
 		for ct in range(1, approx_win):
 
 			# Read the sinogram:
-			test_im = tdf.read_sino(dset, zrange[ct]).astype(float32)
+			test_im = tdf.read_sino(dset, zrange[ct]*downsc_factor).astype(float32)
 
 			# Apply projection removal (if required):
 			test_im = test_im[angles_projfrom:angles_projto, :]
@@ -269,9 +276,12 @@ def process(sino_idx, num_sinos, infile, outfile, preprocessing_required, corr_p
 				if not skipflat:
 					if dynamic_ff:
 						# Dynamic flat fielding with downsampling = 2:
-						test_im = dynamic_flat_fielding(test_im, zrange[ct] / downsc_factor, EFF, filtEFF, 2, im_dark, norm_sx, norm_dx)
+						#test_im = dynamic_flat_fielding(test_im, zrange[ct] / downsc_factor, EFF, filtEFF, 2, im_dark, norm_sx, norm_dx)
+						test_im = dynamic_flat_fielding(test_im, zrange[ct], EFF, filtEFF, 2, im_dark, norm_sx, norm_dx)
 					else:
-						test_im = flat_fielding(test_im, zrange[ct] / downsc_factor, corr_plan, flat_end, half_half, 
+						#test_im = flat_fielding(test_im, zrange[ct] / downsc_factor, corr_plan, flat_end, half_half, 
+						#					half_half_line / decim_factor, norm_sx, norm_dx).astype(float32)	
+						test_im = flat_fielding(test_im, zrange[ct], corr_plan, flat_end, half_half, 
 											half_half_line / decim_factor, norm_sx, norm_dx).astype(float32)	
 				if ext_fov:
 					test_im = extfov_correction(test_im, ext_fov_rot_right, ext_fov_overlap / downsc_factor, ext_fov_normalize, ext_fov_average).astype(float32)
@@ -321,7 +331,7 @@ def process(sino_idx, num_sinos, infile, outfile, preprocessing_required, corr_p
 			dset = f_in['tomo']
 		else: 
 			dset = f_in['exchange/data']
-		im = tdf.read_sino(dset,sino_idx).astype(float32)		
+		im = tdf.read_sino(dset,sino_idx * downsc_factor).astype(float32)		
 		f_in.close()
 
 		# Apply projection removal (if required):
@@ -329,7 +339,7 @@ def process(sino_idx, num_sinos, infile, outfile, preprocessing_required, corr_p
 
 		# Apply decimation and downscaling (if required):
 		im = im[::decim_factor,::downsc_factor]
-		sino_idx = sino_idx / downsc_factor	
+		#sino_idx = sino_idx / downsc_factor	# Downscaling for the index already applied
 			
 		# Perform the preprocessing of the sinogram (if required):
 		if (preprocessing_required):
@@ -479,7 +489,7 @@ def main(argv):
 	angles_projto = int(argv[41])	
 
 	rolling = True if argv[42] == "True" else False
-	roll_shift = int(argv[43])
+	roll_shift = int(int(argv[43]) / decim_factor)
 
 	preprocessingplan_fromcache = True if argv[44] == "True" else False
 	dynamic_ff = True if argv[45] == "True" else False
@@ -518,8 +528,8 @@ def main(argv):
 		exit()		
 
 	# Check extrema:
-	if (sino_idx >= num_sinos):
-		sino_idx = num_sinos - 1
+	if (sino_idx >= num_sinos / downsc_factor):
+		sino_idx = num_sinos / downsc_factor - 1
 	
 	# Get correction plan and phase retrieval plan (if required):
 	skipflat = False
