@@ -208,8 +208,8 @@ def padSmoothWidth(im, n_pad):
 	vleft  = hann[0:marg/2]
 	vright = hann[marg/2:]
 		
-	vrow = concatenate( (vleft,vscale), axis=1)
-	vrow = concatenate( (vrow,vright), axis=1)
+	vrow = concatenate( (vleft,vscale))
+	vrow = concatenate( (vrow,vright))
 	vmatrix = tile(vrow, (im.shape[0],1))
 
 	# Correction for odd/even issues:

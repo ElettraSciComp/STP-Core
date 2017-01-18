@@ -48,6 +48,7 @@ from reconstruct.rec_astra import recon_astra_fbp, recon_astra_iterative
 from reconstruct.rec_fista_tv import recon_fista_tv
 from reconstruct.rec_mr_fbp import recon_mr_fbp
 from reconstruct.rec_gridrec import recon_gridrec
+#from reconstruct.rec_sirt_fbp import recon_sirt_fbp
 
 from postprocess.postprocess import postprocess
 
@@ -56,11 +57,11 @@ from utils.caching import cache2plan, plan2cache
 
 from tifffile import imread, imsave
 from h5py import File as getHDF5
-import io.tdf as tdf
+import stpio.tdf as tdf
 
 
 def reconstruct(im, angles, offset, logtransform, recpar, circle, scale, pad, method, 
-				zerone_mode, dset_min, dset_max, corr_offset, rolling, roll_shift):
+				zerone_mode, dset_min, dset_max, corr_offset, rolling, roll_shift, tmppath):
 	"""Reconstruct a sinogram with the specified reconstruction method (or algorithm).
 
 	Parameters
@@ -152,6 +153,10 @@ def reconstruct(im, angles, offset, logtransform, recpar, circle, scale, pad, me
 		fgpiter = int(fgpiter) 
 		tviter = int(tviter)
 		im = recon_fista_tv(im, angles, lam, fgpiter, tviter)
+	#elif (method == 'SIRT-FBP_CUDA'):
+	#	im = recon_sirt_fbp(im, angles, int(recpar), tmppath )
+	#	# Clean SIRT-FBP cache:
+	#
 	elif (method == 'GRIDREC'):
 		[im, im] = recon_gridrec(im, im, angles, recpar)	
 	else:
@@ -190,7 +195,7 @@ def process(sino_idx, num_sinos, infile, outfile, preprocessing_required, corr_p
 			phrt_param2, energy, distance, pixsize, phrtpad, approx_win, angles, angles_projfrom, angles_projto,
 			offset, logtransform, recpar, circle, scale, pad, method, rolling, roll_shift,
 			zerone_mode, dset_min, dset_max, decim_factor, downsc_factor, corr_offset, postprocess_required, convert_opt, 
-			crop_opt, dynamic_ff, EFF, filtEFF, im_dark, nr_threads, logfilename):
+			crop_opt, dynamic_ff, EFF, filtEFF, im_dark, nr_threads, logfilename, tmppath):
 	"""To do...
 
 	"""
@@ -369,7 +374,7 @@ def process(sino_idx, num_sinos, infile, outfile, preprocessing_required, corr_p
 
 	# Actual reconstruction:
 	im = reconstruct(im, angles, offset / downsc_factor, logtransform, recpar, circle, scale, pad, method, 
-					zerone_mode, dset_min, dset_max, corr_offset, rolling, roll_shift).astype(float32)	
+					zerone_mode, dset_min, dset_max, corr_offset, rolling, roll_shift, tmppath).astype(float32)	
 
 	# Apply post-processing (if required):
 	if postprocess_required:
@@ -608,7 +613,7 @@ def main(argv):
 				phrt_param2, energy, distance, pixsize, phrtpad, approx_win, angles, angles_projfrom, 
 				angles_projto, offset, logtrsf, recpar, circle, scale, overpad, reconmethod, rolling, 
 				roll_shift, zerone_mode, dset_min, dset_max, decim_factor, downsc_factor, corr_offset, 
-				postprocess_required, convert_opt, crop_opt, dynamic_ff, EFF, filtEFF, im_dark, nr_threads, logfilename)		
+				postprocess_required, convert_opt, crop_opt, dynamic_ff, EFF, filtEFF, im_dark, nr_threads, logfilename, tmppath)		
 
 	# Sample:
 	# 311 C:\Temp\BrunGeorgos.tdf C:\Temp\BrunGeorgos.raw 3.1416 -31.0 shepp-logan

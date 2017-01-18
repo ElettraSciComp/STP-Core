@@ -41,7 +41,7 @@ from scipy.optimize import fmin
 from scipy.ndimage.filters import median_filter
 from warnings import simplefilter
 
-from io.tdf import get_det_size, get_nr_projs, get_nr_sinos, read_tomo
+from stpio.tdf import get_det_size, get_nr_projs, get_nr_sinos, read_tomo
 
 def _parallelAnalysis(ff, n):
 

@@ -24,70 +24,37 @@
 # Author: Francesco Brun
 # Last modified: July, 8th 2016
 #
- 
-import os
-import os.path
-import numpy
-import time
 
-from glob import glob
-from sys import argv, exit
-from h5py import File as getHDF5
-from numpy import float32
-from tifffile import imread, imsave
+from numpy import float32, linspace
 
-import stpio.tdf as tdf
+import astra
+import sirtfbp
 
-def main(argv):    
-	"""Computes min/max limits to be used in image degradation to 8-bit or 16-bit.
+def recon_sirt_fbp(im, angles, iter, temppath ):
+	"""Reconstruct a sinogram with the SIRT-FBP algorithm (Pelt, 2015).
 
-    Parameters
-    ----------
-    argv[0] : string
-		The absolute path of the input folder containing reconstructed TIFF files.
+	Parameters
+	----------
+	im : array_like
+		Sinogram image data as numpy array.
 
-	argv[1] : string
-		The absolute path of the output txt file with the proposed limits as string "min:max".
+    iter : int
+		Number of iterations to be used for the computation of SIRT filter.
 
-	Example
-	-------
-	tools_autolimit "S:\\SampleA\\slices" "R:\\Temp\\autolimit.txt"	
+	angles : double
+		Value in radians representing the number of angles of the input sinogram.
+	
+	"""
+	# Create ASTRA geometries:
+	vol_geom = astra.create_vol_geom(im.shape[1] , im.shape[1])
+	proj_geom = astra.create_proj_geom('parallel', 1.0, im.shape[1], linspace(0,angles,im.shape[0],False))
+	proj = astra.create_projector('cuda', proj_geom, vol_geom)
+	p = astra.OpTomo(proj)
 
-    """
-	try:
-		   
-		# Get input and output paths:
-		inpath  = argv[0]
-		outfile  = argv[1]  # The txt file with the proposed center
-	
-		if not inpath.endswith(os.path.sep): inpath += os.path.sep
-	
-		# Get the number of files in folder:
-		files = sorted(glob(inpath + '*.tif*'))
-		num_files = len(files)			
-	
-		# Read the median slice from disk:
-		im = imread(files[num_files/2])
-	
-		# Flat the image and sort it:
-		im_flat = im.flatten()
-		im_flat = numpy.sort(im_flat)
-	
-		# Return as minimum the value the skip 0.30% of "black" tail and 0.005% of "white" tail:
-		low_idx  = int(im_flat.shape[0] * 0.0030)
-		high_idx = int(im_flat.shape[0] * 0.9995)
-	
-		min = im_flat[low_idx]
-		max = im_flat[high_idx]
-	
-		# Print center to output file:
-		text_file = open(outfile, "w")
-		text_file.write( str(min) + ":" + str(max) )
-		text_file.close()			
-	
-	except:				
-		
-		exit()
+	# Register plugin with ASTRA
+	astra.plugin.register(sirtfbp.plugin)
 
-if __name__ == "__main__":
-	main(argv[1:])
+	# Create the ASTRA projector
+	im_rec = p.reconstruct('SIRT-FBP',im, iter, extraOptions={'filter_dir':temppath})
+	
+	return im_rec.astype(float32)

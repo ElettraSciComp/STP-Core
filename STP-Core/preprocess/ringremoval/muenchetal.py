@@ -22,7 +22,7 @@
 
 #
 # Author: Francesco Brun
-# Last modified: July, 8th 2016
+# Last modified: January, 2nd 2017 (bug in concatenate with numpy 1.11 + mkl)
 #
 
 from numpy.fft import fftshift, ifftshift
@@ -128,7 +128,7 @@ def _sijberspostnov(im, args):
 	for i in range(0, im.shape[0]):
 		im[i,:] = im[i,:] - glob_art
 
-	 # Return image:
+	# Return image:
 	return im.astype(float32)
 
 
@@ -140,8 +140,8 @@ def _windowing_lr(im, marg):
 	vleft = hann[0:marg / 2]
 	vright = hann[marg / 2:]
 		
-	vrow = concatenate((vleft,vscale), axis=1)
-	vrow = concatenate((vrow,vright), axis=1)
+	vrow = concatenate((vleft,vscale))
+	vrow = concatenate((vrow,vright))
 	vmatrix = tile(vrow, (im.shape[0],1))
 
 	# Correction for odd/even issues:

@@ -5,7 +5,7 @@
     <SchemaVersion>2.0</SchemaVersion>
     <ProjectGuid>397494a0-035b-4ad0-996a-2799fb86dfcf</ProjectGuid>
     <ProjectHome>.</ProjectHome>
-    <StartupFile>preview_reconstruct.py</StartupFile>
+    <StartupFile>tools_multioffset.py</StartupFile>
     <SearchPath>
     </SearchPath>
     <WorkingDirectory>.</WorkingDirectory>
@@ -17,7 +17,7 @@
     </InterpreterArguments>
     <EnableNativeCodeDebugging>False</EnableNativeCodeDebugging>
     <InterpreterPath>C:\Users\Franz\Documents\Visual Studio 2012\Projects\STP-Gui\STP-Gui\bin\x64\Release\python\python-2.7.10.amd64\python.exe</InterpreterPath>
-    <CommandLineArguments>350 "C:\Temp\B_step_go_half360.tdf" "C:\Temp\20161224173851037\20161224174022472" 3.14159265358979 0 shepp-logan 1 False True False True True True 900 True True 426 False False 0 51 False "rivers:3;0" False 0 FBP_CUDA 1 1 False linear8:-0.01;0.01 0:0:0:0 False 0 1E-10 2E-07 22 150 2.2 False 16 0 1799 True 0 True False 1 "C:\Temp\20161224173851037" "C:\Temp\20161224173851037\_rec_log_00.txt"</CommandLineArguments>
+    <CommandLineArguments>75 "C:\Temp\Example1_corr.tdf" "C:\Temp\buttami" 3.14159265358979 -7 shepp-logan 1 False False False False False False 0 False False 0 False False 0 0 False "rivers:3;0" False 0 FBP_CUDA 2 2 False linear8:-0.01;0.01 0:0:0:0 True 0 1E-10 2.1E-07 22 150 2.2 True 32 0 1799 True "C:\Temp\20170118234835139" 3 -40 40 "slice" "C:\Temp\20170118234835139\_multioffset_log_00.txt"</CommandLineArguments>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
     <DebugSymbols>true</DebugSymbols>
@@ -32,7 +32,7 @@
     <PtvsTargetsFile>$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)\Python Tools\Microsoft.PythonTools.targets</PtvsTargetsFile>
   </PropertyGroup>
   <ItemGroup>
-    <Folder Include="io\" />
+    <Folder Include="stpio\" />
     <Folder Include="phaseretrieval\" />
     <Folder Include="postprocess\" />
     <Folder Include="preprocess\" />
@@ -49,9 +49,9 @@
     <Compile Include="exec_reconstruct.py" />
     <Compile Include="exec_tdf2tiff.py" />
     <Compile Include="exec_tiff2tdf.py" />
-    <Compile Include="io\EdfFile.py" />
-    <Compile Include="io\tdf.py" />
-    <Compile Include="io\__init__.py" />
+    <Compile Include="stpio\EdfFile.py" />
+    <Compile Include="stpio\tdf.py" />
+    <Compile Include="stpio\__init__.py" />
     <Compile Include="phaseretrieval\phrt.py">
       <SubType>Code</SubType>
     </Compile>

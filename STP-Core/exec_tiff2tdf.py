@@ -37,7 +37,7 @@ from glob import glob
 
 from tifffile import imread, imsave
 from h5py import File as getHDF5
-import io.tdf as tdf
+import stpio.tdf as tdf
 from multiprocessing import Process, Lock
 
 

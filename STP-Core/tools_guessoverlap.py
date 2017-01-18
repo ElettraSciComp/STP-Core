@@ -35,7 +35,7 @@ from h5py import File as getHDF5
 
 import time
 
-import io.tdf as tdf
+import stpio.tdf as tdf
 import utils.findcenter as findcenter
 from utils.caching import cache2plan, plan2cache
 from preprocess.extract_flatdark import extract_flatdark

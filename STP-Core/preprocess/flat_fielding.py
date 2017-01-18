@@ -22,7 +22,7 @@
 
 #
 # Author: Francesco Brun
-# Last modified: Setp, 28th 2016
+# Last modified: January, 2nd 2017 (bug in concatenate with numpy 1.11 + mkl)
 #
 
 from numpy import float32, finfo, ndarray, isnan
@@ -162,10 +162,10 @@ def flat_fielding (im, i, plan, flat_end, half_half, half_half_line, norm_sx, no
 					else:	
 						im_flat_sx_before = im_flat[i,0:norm_sx]						
 						im_flat_dx_before = im_flat[i,-norm_dx:]					
-						im_flat_air_before = concatenate((im_flat_sx_before,im_flat_dx_before), axis=1)
+						im_flat_air_before = concatenate((im_flat_sx_before,im_flat_dx_before))
 						im_flat_sx_after = im_flat_after[i,0:norm_sx]								
 						im_flat_dx_after = im_flat_after[i,-norm_dx:]					
-						im_flat_air_after = concatenate((im_flat_sx_after,im_flat_dx_after), axis=1)		
+						im_flat_air_after = concatenate((im_flat_sx_after,im_flat_dx_after))		
 						
 					im_flat_air_before = tile(im_flat_air_before, (half_half_line,1)) 
 					im_flat_air_after = tile(im_flat_air_after, (im.shape[0]-half_half_line,1)) 
@@ -177,10 +177,10 @@ def flat_fielding (im, i, plan, flat_end, half_half, half_half_line, norm_sx, no
 					else:
 						im_dark_sx_before = im_dark[i,0:norm_sx]								
 						im_dark_dx_before = im_dark[i,-norm_dx:]
-						im_dark_air_before = concatenate((im_dark_sx_before,im_dark_dx_before), axis=1)
+						im_dark_air_before = concatenate((im_dark_sx_before,im_dark_dx_before))
 						im_dark_sx_after = im_dark_after[i,0:norm_sx]								
 						im_dark_dx_after = im_dark_after[i,-norm_dx:]					
-						im_dark_air_after = concatenate((im_dark_sx_after,im_dark_dx_after), axis=1)					
+						im_dark_air_after = concatenate((im_dark_sx_after,im_dark_dx_after))					
 					
 					im_dark_air_before = tile(im_dark_air_before, (half_half_line,1)) 
 					im_dark_air_after = tile(im_dark_air_after, (im.shape[0]-half_half_line,1)) 
@@ -223,7 +223,7 @@ def flat_fielding (im, i, plan, flat_end, half_half, half_half_line, norm_sx, no
 					else:
 						im_flat_sx = im_flat[i,0:norm_sx]								
 						im_flat_dx = im_flat[i,-norm_dx:]
-						im_flat_air = concatenate((im_flat_sx,im_flat_dx), axis=1)	
+						im_flat_air = concatenate((im_flat_sx,im_flat_dx))	
 						
 					im_flat_air = tile(im_flat_air, (im.shape[0],1)) 
 					
@@ -232,7 +232,7 @@ def flat_fielding (im, i, plan, flat_end, half_half, half_half_line, norm_sx, no
 					else:
 						im_dark_sx = im_dark[i,0:norm_sx]								
 						im_dark_dx = im_dark[i,-norm_dx:]
-						im_dark_air = concatenate((im_dark_sx,im_dark_dx), axis=1)						
+						im_dark_air = concatenate((im_dark_sx,im_dark_dx))						
 						
 					im_dark_air = tile(im_dark_air, (im.shape[0],1)) 	
 								

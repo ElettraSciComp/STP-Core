@@ -52,7 +52,7 @@ from utils.padding import upperPowerOfTwo, padImage, padSmoothWidth
 
 from tifffile import imread, imsave
 from h5py import File as getHDF5
-import io.tdf as tdf
+import stpio.tdf as tdf
 
 
 def reconstruct(im, angles, offset, logtransform, param1, circle, scale, pad, method, rolling, roll_shift,

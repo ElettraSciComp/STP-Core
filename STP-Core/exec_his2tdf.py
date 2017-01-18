@@ -35,7 +35,7 @@ from time import strftime
 from sys import argv, exit
 from glob import glob
 from h5py import File as getHDF5
-import io.tdf as tdf
+import stpio.tdf as tdf
 
 
 def _getHISdim ( HISfilename ):

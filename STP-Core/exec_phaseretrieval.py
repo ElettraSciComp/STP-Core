@@ -38,7 +38,7 @@ from phaseretrieval.tiehom import tiehom, tiehom_plan
 from phaseretrieval.phrt   import phrt, phrt_plan
 
 from h5py import File as getHDF5
-import io.tdf as tdf
+import stpio.tdf as tdf
 
 
 def _write_data(lock, im, index, outfile, outshape, outtype, logfilename, cputime, itime):    	      

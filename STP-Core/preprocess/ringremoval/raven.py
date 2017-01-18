@@ -22,7 +22,7 @@
 
 #
 # Author: Francesco Brun
-# Last modified: August, 4th 2016
+# Last modified: January, 2nd 2017 (bug in concatenate with numpy 1.11 + mkl)
 #
 
 from numpy import float32, iinfo, finfo, ndarray, arange, meshgrid, sqrt
@@ -42,8 +42,8 @@ def _windowing_lr(im, marg):
 	vleft = hann[0:marg / 2]
 	vright = hann[marg / 2:]
 		
-	vrow = concatenate((vleft,vscale), axis=1)
-	vrow = concatenate((vrow,vright), axis=1)
+	vrow = concatenate((vleft,vscale))
+	vrow = concatenate((vrow,vright))
 	vmatrix = tile(vrow, (im.shape[0],1))
 
 	# Correction for odd/even issues:

@@ -40,7 +40,7 @@ from phaseretrieval.phrt   import phrt, phrt_plan
 from h5py import File as getHDF5
 from utils.caching import cache2plan, plan2cache
 from preprocess.extract_flatdark import extract_flatdark
-import io.tdf as tdf
+import stpio.tdf as tdf
 
 
 def main(argv):
@@ -77,12 +77,17 @@ def main(argv):
 	logfilename = argv[11]		
 
 	
-	# Open the HDF5 file:
+	# Open the HDF5 file and check it contains flat files:
+	skipflat = False
 	f_in = getHDF5(infile, 'r')
 	if "/tomo" in f_in:
 		dset = f_in['tomo']
+		if not "/flat" in f_in:
+			skipflat = True
 	else: 
 		dset = f_in['exchange/data']
+		if not "/exchange/data_white" in f_in:
+			skipflat = True
 	num_proj = tdf.get_nr_projs(dset)
 	num_sinos = tdf.get_nr_sinos(dset)
 	
@@ -93,28 +98,32 @@ def main(argv):
 		log.close()			
 		exit()		
 
+	
+
 
 	# Get flats and darks from cache or from file:
-	try:
-		corrplan = cache2plan(infile, tmppath)
-	except Exception as e:
-		#print "Error(s) when reading from cache"
-		corrplan = extract_flatdark(f_in, True, logfilename)
-		remove(logfilename)
-		plan2cache(corrplan, infile, tmppath)
+	if not skipflat:
+		try:
+			corrplan = cache2plan(infile, tmppath)
+		except Exception as e:
+			#print "Error(s) when reading from cache"
+			corrplan = extract_flatdark(f_in, True, logfilename)
+			remove(logfilename)
+			plan2cache(corrplan, infile, tmppath)
 
 	# Read projection:
 	im = tdf.read_tomo(dset,idx).astype(float32)		
 	f_in.close()
 
 	# Apply simple flat fielding (if applicable):
-	if (isinstance(corrplan['im_flat_after'], ndarray) and isinstance(corrplan['im_flat'], ndarray) and
-		isinstance(corrplan['im_dark'], ndarray) and isinstance(corrplan['im_dark_after'], ndarray)) :	
-		if (idx < num_proj/2):
-			im = (im - corrplan['im_dark']) / (abs(corrplan['im_flat'] - corrplan['im_dark']) + finfo(float32).eps)
-		else:
-			im = (im - corrplan['im_dark_after']) / (abs(corrplan['im_flat_after'] - corrplan['im_dark_after']) 
-				+ finfo(float32).eps)	
+	if not skipflat:
+		if (isinstance(corrplan['im_flat_after'], ndarray) and isinstance(corrplan['im_flat'], ndarray) and
+			isinstance(corrplan['im_dark'], ndarray) and isinstance(corrplan['im_dark_after'], ndarray)) :	
+			if (idx < num_proj/2):
+				im = (im - corrplan['im_dark']) / (abs(corrplan['im_flat'] - corrplan['im_dark']) + finfo(float32).eps)
+			else:
+				im = (im - corrplan['im_dark_after']) / (abs(corrplan['im_flat_after'] - corrplan['im_dark_after']) 
+					+ finfo(float32).eps)	
 					
 	# Prepare plan:
 	im = im.astype(float32)

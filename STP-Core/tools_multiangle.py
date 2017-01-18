@@ -55,7 +55,7 @@ from utils.caching import cache2plan, plan2cache
 
 from tifffile import imread, imsave
 from h5py import File as getHDF5
-import io.tdf as tdf
+import stpio.tdf as tdf
 
 
 def write_log(lock, fname, logfilename):    	      
@@ -257,12 +257,14 @@ def process(sino_idx, num_sinos, infile, outpath, preprocessing_required, corr_p
 			zrange     = zrange[0:approx_win]
 		
 		# Read one sinogram to get the proper dimensions:
-		test_im = tdf.read_sino(dset, zrange[0]).astype(float32)		
+		test_im = tdf.read_sino(dset, zrange[0]*downsc_factor).astype(float32)		
+		
+		# Apply decimation and downscaling (if required):
 		test_im = test_im[::decim_factor, ::downsc_factor]
 
 		# Perform the pre-processing of the first sinogram to get the right dimension:
 		if (preprocessing_required):
-			test_im = flat_fielding (test_im, zrange[0]/downsc_factor, corr_plan, flat_end, half_half, 
+			test_im = flat_fielding (test_im, zrange[0], corr_plan, flat_end, half_half, 
 										half_half_line/decim_factor, norm_sx, norm_dx).astype(float32)	
 			if ext_fov:
 				test_im = extfov_correction (test_im, ext_fov_rot_right, ext_fov_overlap/downsc_factor, ext_fov_normalize, ext_fov_average).astype(float32)			
@@ -276,12 +278,12 @@ def process(sino_idx, num_sinos, infile, outpath, preprocessing_required, corr_p
 		# Reading all the the sinos from TDF file and close:
 		for ct in range(1, approx_win):
 			
-			test_im = tdf.read_sino(dset, zrange[ct]).astype(float32)
+			test_im = tdf.read_sino(dset, zrange[ct]*downsc_factor).astype(float32)
 			test_im = test_im[::decim_factor, ::downsc_factor]
 			
 			# Perform the pre-processing for each sinogram of the bunch:
 			if (preprocessing_required):
-				test_im = flat_fielding (test_im, zrange[ct]/downsc_factor, corr_plan, flat_end, half_half, 
+				test_im = flat_fielding (test_im, zrange[ct], corr_plan, flat_end, half_half, 
 											half_half_line/decim_factor, norm_sx, norm_dx).astype(float32)	
 				if ext_fov:
 					test_im = extfov_correction (test_im, ext_fov_rot_right, ext_fov_overlap/downsc_factor, ext_fov_normalize, ext_fov_average).astype(float32)			
@@ -324,12 +326,12 @@ def process(sino_idx, num_sinos, infile, outpath, preprocessing_required, corr_p
 			dset = f_in['tomo']
 		else: 
 			dset = f_in['exchange/data']
-		im = tdf.read_sino(dset,sino_idx).astype(float32)		
+		im = tdf.read_sino(dset,sino_idx * downsc_factor).astype(float32)		
 		f_in.close()
 
 		# Downscale and decimate the sinogram:
 		im = im[::decim_factor,::downsc_factor]
-		sino_idx = sino_idx/downsc_factor	
+		#sino_idx = sino_idx/downsc_factor	
 			
 		# Perform the preprocessing of the sinogram (if required):
 		if (preprocessing_required):
@@ -354,15 +356,15 @@ def process(sino_idx, num_sinos, infile, outpath, preprocessing_required, corr_p
 		else:
 			end = ( (angles_to - angles_from + 1) / nr_threads)*(num + 1) + angles_from - 1
 
-		#Process(target=reconstruct, args=(im, angles, offset/downsc_factor, logtransform, param1, circle, scale, pad, method, 
-		#				zerone_mode, dset_min, dset_max, corr_offset, postprocess_required, convert_opt, crop_opt, start, end, 
-		#               outpath, slice_nr, downsc_factor, decim_factor, logfilename, lock, slice_prefix)).start()
+		Process(target=reconstruct, args=(im, angles, offset/downsc_factor, logtransform, param1, circle, scale, pad, method, 
+					   zerone_mode, dset_min, dset_max, corr_offset, postprocess_required, convert_opt, crop_opt, start, end, 
+		               outpath, slice_nr, downsc_factor, decim_factor, logfilename, lock, slice_prefix)).start()
 
 
 		# Actual reconstruction:
-		reconstruct(im, angles, offset/downsc_factor, logtransform, param1, circle, scale, pad, method, 
-						zerone_mode, dset_min, dset_max, corr_offset, postprocess_required, convert_opt, crop_opt, 
-						start, end, outpath, slice_nr, downsc_factor, decim_factor, logfilename, lock, slice_prefix)
+		#reconstruct(im, angles, offset/downsc_factor, logtransform, param1, circle, scale, pad, method, 
+		#				zerone_mode, dset_min, dset_max, corr_offset, postprocess_required, convert_opt, crop_opt, 
+		#				start, end, outpath, slice_nr, downsc_factor, decim_factor, logfilename, lock, slice_prefix)
 
 										
 
@@ -502,8 +504,8 @@ def main(argv):
 		exit()		
 
 	# Check extrema:
-	if (sino_idx >= num_sinos):
-		sino_idx = num_sinos - 1
+	if (sino_idx >= num_sinos / downsc_factor):
+		sino_idx = num_sinos / downsc_factor - 1
 	
 	# Get correction plan and phase retrieval plan (if required):
 	corrplan = 0	

@@ -39,7 +39,7 @@ from preprocess.ring_correction import ring_correction
 from preprocess.extract_flatdark import extract_flatdark, _medianize
 
 from h5py import File as getHDF5
-import io.tdf as tdf
+import stpio.tdf as tdf
 
 
 def _write_data(lock, im, index, outfile, outshape, outtype, logfilename, cputime, itime):    	      
