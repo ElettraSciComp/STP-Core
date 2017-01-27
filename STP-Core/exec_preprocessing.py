@@ -28,7 +28,7 @@
 from sys import argv, exit
 from os import remove, sep,  linesep
 from os.path import exists
-from numpy import float32, amin, amax, isscalar
+from numpy import float32, float16, amin, amax, isscalar
 from time import time
 from multiprocessing import Process, Lock
 
@@ -49,7 +49,7 @@ def _write_data(lock, im, index, outfile, outshape, outtype, logfilename, cputim
 		t0 = time() 			
 		f_out = getHDF5( outfile, 'a' )					 
 		f_out_dset = f_out.require_dataset('exchange/data', outshape, outtype, chunks=tdf.get_dset_chunks(outshape[0])) 
-		tdf.write_sino(f_out_dset,index,im.astype(float32))
+		tdf.write_sino(f_out_dset,index,im.astype(outtype))
 					
 		# Set minimum and maximum:
 		if ( amin(im[:]) < float(f_out_dset.attrs['min']) ):
@@ -283,7 +283,8 @@ def main(argv):
 	
 	# Create the output HDF5 file:	
 	f_out = getHDF5(outfile, 'w')
-	f_out_dset = f_out.create_dataset('exchange/data', outshape, im.dtype) 
+	#f_out_dset = f_out.create_dataset('exchange/data', outshape, im.dtype) 
+	f_out_dset = f_out.create_dataset('exchange/data', outshape, float16) 
 	f_out_dset.attrs['min'] = str(amin(im[:]))
 	f_out_dset.attrs['max'] = str(amax(im[:]))
 	f_out_dset.attrs['version'] = '1.0'
@@ -306,16 +307,16 @@ def main(argv):
 			end = num_sinos - 1
 		else:
 			end = (num_sinos / nr_threads)*(num + 1) - 1
-		Process(target=_process, args=(lock, start, end, infile, outfile, outshape, im.dtype, skipflat, plan, norm_sx, 
+		Process(target=_process, args=(lock, start, end, infile, outfile, outshape, float16, skipflat, plan, norm_sx, 
 				norm_dx, flat_end, half_half, half_half_line, ext_fov, ext_fov_rot_right, ext_fov_overlap, 
 				ext_fov_normalize, ext_fov_average, ringrem, dynamic_ff, EFF, filtEFF, im_dark, logfilename )).start()
 
 
 	#start = int_from # 0
 	#end = int_to # num_sinos - 1
-	#_process(lock, start, end, infile, outfile, outshape, im.dtype, skipflat, plan, norm_sx, 
-	#			norm_dx, flat_end, half_half, half_half_line, ext_fov, ext_fov_rot_right, ext_fov_overlap, 
-	#           ext_fov_normalize, ext_fov_average, ringrem, dynamic_ff, EFF, filtEFF, im_dark, logfilename)
+	#_process(lock, start, end, infile, outfile, outshape, float16, skipflat, plan, norm_sx, 
+	#		   norm_dx, flat_end, half_half, half_half_line, ext_fov, ext_fov_rot_right, ext_fov_overlap, 
+	#          ext_fov_normalize, ext_fov_average, ringrem, dynamic_ff, EFF, filtEFF, im_dark, logfilename)
 
 	#255 256 C:\Temp\BrunGeorgos.tdf C:\Temp\BrunGeorgos_corr.tdf 0 0 True True 900 False False 0 rivers:11;0 False 1 C:\Temp\log_00.txt
 

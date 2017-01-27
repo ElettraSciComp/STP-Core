@@ -5,7 +5,7 @@
     <SchemaVersion>2.0</SchemaVersion>
     <ProjectGuid>397494a0-035b-4ad0-996a-2799fb86dfcf</ProjectGuid>
     <ProjectHome>.</ProjectHome>
-    <StartupFile>preview_phaseretrieval.py</StartupFile>
+    <StartupFile>exec_preprocessing.py</StartupFile>
     <SearchPath>
     </SearchPath>
     <WorkingDirectory>.</WorkingDirectory>
@@ -17,7 +17,7 @@
     </InterpreterArguments>
     <EnableNativeCodeDebugging>False</EnableNativeCodeDebugging>
     <InterpreterPath>C:\Users\Franz\Documents\Visual Studio 2012\Projects\STP-Gui\STP-Gui\bin\x64\Release\python\python-2.7.10.amd64\python.exe</InterpreterPath>
-    <CommandLineArguments>900 "C:\Temp\Example1.tdf" "C:\Temp\20170124153949995\20170124154145464" 5 0.1 2.5 22 150 2.2 True "C:\Temp\20170124153949995" "C:\Temp\20170124153949995\_phrt_log_00.txt"</CommandLineArguments>
+    <CommandLineArguments>0 299 "C:\Temp\Example1.tdf" "C:\Temp\Example1_corr.tdf" 41 0 True True 900 False False 0 False False muenchetal:5;1.8 False 3 "C:\Temp\20170127142358208\_corr_log_00.txt"</CommandLineArguments>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
     <DebugSymbols>true</DebugSymbols>
