@@ -59,7 +59,7 @@ def _process(lock, int_from, int_to, infile, dset_str, TIFFFormat, projorder, ou
 	"""							
 	try:			
 
-		f = getHDF5( infile, 'r' )	
+		f = getHDF5(infile, 'r')	
 		dset = f[dset_str]
 				
 		# Process the required subset of images:
@@ -69,23 +69,20 @@ def _process(lock, int_from, int_to, infile, dset_str, TIFFFormat, projorder, ou
 			t0 = time.time()
 
 			if projorder:
-				im = tdf.read_tomo( dset, i )				
+				im = tdf.read_tomo(dset, i)				
 			else:
-				im = tdf.read_sino( dset, i )
-
-			if ( TIFFFormat ):				
-				fname = outpath + outprefix + '_' + str(i).zfill(4) + '.tif'
-			else:
-				fname = outpath + outprefix + '_' + str(i).zfill(4) + '_' + str(im.shape[1]) + \
-						'x' + str(im.shape[0]) + '_' + str(im.dtype)	+ '.raw'
+				im = tdf.read_sino(dset, i)		
 				
-			# Cast type (if required but it should never occur):		
+			# Cast type (if required but it should never occur):
 			if (((im.dtype).type is float64) or ((im.dtype).type is float16)):
 				im = im.astype(float32, copy=False)
 				
-			if ( TIFFFormat ):
+			if (TIFFFormat):
+				fname = outpath + outprefix + '_' + str(i).zfill(4) + '.tif'
 				imsave(fname, im)
 			else:
+				fname = outpath + outprefix + '_' + str(i).zfill(4) + '_' + str(im.shape[1]) + \
+						'x' + str(im.shape[0]) + '_' + str(im.dtype) + '.raw'
 				im.tofile(fname)
 
 			t1 = time.time() 
@@ -219,7 +216,7 @@ def main(argv):
 	else:
 		TIFFFormat = False	
 		
-	nr_threads  = int(argv[9])
+	nr_threads = int(argv[9])
 	logfilename = argv[10]
 	
 	# Check prefixes and path:
@@ -233,12 +230,12 @@ def main(argv):
 	# Get the files in infile:
 	log = open(logfilename,"w")
 	log.write(os.linesep + "\tInput TDF: %s" % (infile))
-	if ( TIFFFormat ):
+	if (TIFFFormat):
 		log.write(os.linesep + "\tOutput path where TIFF files will be created: %s" % (outpath))		
 	else:
 		log.write(os.linesep + "\tOutput path where RAW files will be created: %s" % (outpath))		
 	log.write(os.linesep + "\t--------------")			
-	log.write(os.linesep + "\tFile output prefix: %s"  % (fileprefix))
+	log.write(os.linesep + "\tFile output prefix: %s" % (fileprefix))
 	log.write(os.linesep + "\tFlat images output prefix: %s" % (flatprefix))
 	log.write(os.linesep + "\tDark images output prefix: %s" % (darkprefix))
 	log.write(os.linesep + "\t--------------")	
@@ -262,9 +259,9 @@ def main(argv):
 		exit()	
 
 	# Open the HDF5 file:
-	f = getHDF5( infile, 'r' )
+	f = getHDF5(infile, 'r')
 	
-	oldTDF = False;
+	oldTDF = False
 	
 	try:		
 		dset = f['tomo']			
@@ -279,11 +276,11 @@ def main(argv):
 		#try:
 			dset = f['exchange/data']
 			
-		#except Exception:		
+		#except Exception:
 			
 		#	log = open(logfilename,"a")
-		#	log.write(os.linesep + "\tError: invalid TDF format. Process will end.")					
-		#	log.close()			
+		#	log.write(os.linesep + "\tError: invalid TDF format.  Process will end.")
+		#	log.close()
 		#	exit()
 	
 	if projorder:
@@ -296,7 +293,7 @@ def main(argv):
 
 	# Get attributes:
 	try:
-		f = getHDF5( infile, 'r' )
+		f = getHDF5(infile, 'r')
 		if ('version' in f.attrs) and (f.attrs['version'] == 'TDF 1.0'):	
 			log = open(logfilename,"a")
 			log.write(os.linesep + "\tTDF version 1.0 found.")
@@ -311,7 +308,7 @@ def main(argv):
 		log.close()			
 
 	# Check extrema (int_to == -1 means all files):
-	if ( (int_to >= num_files) or (int_to == -1) ):
+	if ((int_to >= num_files) or (int_to == -1)):
 		int_to = num_files - 1
 		
 
@@ -319,7 +316,7 @@ def main(argv):
 	# Spawn the process for the conversion of flat images:
 	if not skipflat:
 
-		f = getHDF5( infile, 'r' )
+		f = getHDF5(infile, 'r')
 		if oldTDF:
 			dset_str = 'flat'
 		else:
@@ -327,15 +324,16 @@ def main(argv):
 		num_flats = tdf.get_nr_projs(f[dset_str])
 		f.close()	
 
-		if ( num_flats > 0):
+		if (num_flats > 0):
 			Process(target=_process, args=(lock, 0, num_flats - 1, infile, dset_str, TIFFFormat, 
 											True, outpath, flatprefix, logfilename)).start()
-			#_process(lock, 0, num_flats - 1, infile, dset_str, TIFFFormat, projorder, outpath, flatprefix, logfilename)
+			#_process(lock, 0, num_flats - 1, infile, dset_str, TIFFFormat, projorder,
+			#outpath, flatprefix, logfilename)
 
 	# Spawn the process for the conversion of dark images:
 	if not skipdark:
 
-		f = getHDF5( infile, 'r' )
+		f = getHDF5(infile, 'r')
 		if oldTDF:
 			dset_str = 'dark'
 		else:
@@ -343,10 +341,11 @@ def main(argv):
 		num_darks = tdf.get_nr_projs(f[dset_str])
 		f.close()	
 
-		if ( num_darks > 0):
+		if (num_darks > 0):
 			Process(target=_process, args=(lock, 0, num_darks - 1, infile, dset_str, TIFFFormat, 
 											True, outpath, darkprefix, logfilename)).start()
-			#_process(lock, 0, num_darks - 1, infile, dset_str, TIFFFormat, projorder, outpath, darkprefix, logfilename)
+			#_process(lock, 0, num_darks - 1, infile, dset_str, TIFFFormat, projorder,
+			#outpath, darkprefix, logfilename)
 
 	# Spawn the processes for the conversion of projection or sinogram images:
 	if not skiptomo:
@@ -356,19 +355,20 @@ def main(argv):
 		else:
 			dset_str = 'exchange/data'
 		
-		# Start the process for the conversion of the projections (or sinograms) in a multi-threaded way:
+		# Start the process for the conversion of the projections (or sinograms) in a
+		# multi-threaded way:
 		for num in range(nr_threads):
-			start = ( (int_to - int_from + 1) / nr_threads)*num + int_from
+			start = ((int_to - int_from + 1) / nr_threads) * num + int_from
 			if (num == nr_threads - 1):
 				end = int_to
 			else:
-				end = ( (int_to - int_from + 1) / nr_threads)*(num + 1) + int_from - 1
+				end = ((int_to - int_from + 1) / nr_threads) * (num + 1) + int_from - 1
 
 			Process(target=_process, args=(lock, start, end, infile, dset_str, TIFFFormat, 
 											projorder, outpath, fileprefix, logfilename)).start()
 			
-			#_process(lock, start, end, infile, dset_str, TIFFFormat, projorder, outpath, fileprefix, logfilename)
+			#_process(lock, start, end, infile, dset_str, TIFFFormat, projorder,
+			#outpath, fileprefix, logfilename)
 	
-	
-if __name__ == "__main__":
+	if __name__ == "__main__":
 	main(argv[1:])
