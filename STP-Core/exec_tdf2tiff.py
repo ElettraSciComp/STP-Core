@@ -87,7 +87,7 @@ def _process(lock, int_from, int_to, infile, dset_str, TIFFFormat, projorder, ou
 
 			t1 = time.time() 
 
-			# Print out execution time:	
+			# Print out execution time:
 			_write_log(lock, fname, logfilename, t1 - t0)
 					
 		f.close()
@@ -370,5 +370,5 @@ def main(argv):
 			#_process(lock, start, end, infile, dset_str, TIFFFormat, projorder,
 			#outpath, fileprefix, logfilename)
 	
-	if __name__ == "__main__":
+if __name__ == "__main__":
 	main(argv[1:])
