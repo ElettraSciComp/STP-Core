@@ -31,7 +31,7 @@ import os.path
 import time
 
 from sys import argv, exit
-from numpy import float32, float64
+from numpy import float32, float64, float16
 
 from tifffile import imread, imsave
 from h5py import File as getHDF5
@@ -80,7 +80,7 @@ def _process(lock, int_from, int_to, infile, dset_str, TIFFFormat, projorder, ou
 						'x' + str(im.shape[0]) + '_' + str(im.dtype)	+ '.raw'
 				
 			# Cast type (if required but it should never occur):		
-			if ((im.dtype).type is float64):
+			if (((im.dtype).type is float64) or ((im.dtype).type is float16)):
 				im = im.astype(float32, copy=False)
 				
 			if ( TIFFFormat ):
