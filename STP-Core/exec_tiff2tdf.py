@@ -40,6 +40,8 @@ from h5py import File as getHDF5
 import stpio.tdf as tdf
 from multiprocessing import Process, Lock
 
+io_warning = False
+
 
 def _write_data(lock, im, index, offset, abs_offset, imfilename, timestamp, projorder, tot_files, 
 				provenance_dt, outfile, dsetname, outshape, outtype, logfilename, itime):    	      
@@ -51,7 +53,7 @@ def _write_data(lock, im, index, offset, abs_offset, imfilename, timestamp, proj
 
 		# Open the HDF5 file to be populated with projections (or sinograms):
 		t0 = time.time() 			
-		f_out = getHDF5( outfile, 'a' )					 
+		f_out = getHDF5(outfile, 'a')					 
 		f_out_dset = f_out.require_dataset(dsetname, outshape, outtype, chunks=tdf.get_dset_chunks(outshape[0])) 
 		
 		# Write the projection file or sinogram file:
@@ -60,19 +62,18 @@ def _write_data(lock, im, index, offset, abs_offset, imfilename, timestamp, proj
 		else:
 			tdf.write_sino(f_out_dset, index - abs_offset, im)
 					
-		# Set minimum and maximum (without Infs and NaNs):		
+		# Set minimum and maximum (without Infs and NaNs):
 		tmp = im[:].astype(numpy.float32)
 		tmp = tmp[numpy.nonzero(numpy.isfinite(tmp))]
-		if ( numpy.amin(tmp[:]) < float(f_out_dset.attrs['min']) ):
+		if (numpy.amin(tmp[:]) < float(f_out_dset.attrs['min'])):
 			f_out_dset.attrs['min'] = str(numpy.amin(tmp[:]))
-		if ( numpy.amax(tmp[:]) > float(f_out_dset.attrs['max'])):
+		if (numpy.amax(tmp[:]) > float(f_out_dset.attrs['max'])):
 			f_out_dset.attrs['max'] = str(numpy.amax(tmp[:]))	
 			
 		# Save provenance metadata:
-		provenance_dset =  f_out.require_dataset('provenance/detector_output', (tot_files,), dtype=provenance_dt)	
+		provenance_dset = f_out.require_dataset('provenance/detector_output', (tot_files,), dtype=provenance_dt)	
 		provenance_dset["filename", offset - abs_offset + index] = numpy.string_(os.path.basename(imfilename))
-		provenance_dset["timestamp", offset - abs_offset + index] = numpy.string_(
-			datetime.datetime.fromtimestamp(timestamp).strftime('%Y-%m-%d %H:%M:%S.%f')[:-3])
+		provenance_dset["timestamp", offset - abs_offset + index] = numpy.string_(datetime.datetime.fromtimestamp(timestamp).strftime('%Y-%m-%d %H:%M:%S.%f')[:-3])
 		
 		# Close the HDF5:
 		f_out.close()	
@@ -82,6 +83,17 @@ def _write_data(lock, im, index, offset, abs_offset, imfilename, timestamp, proj
 		log = open(logfilename,"a")
 		log.write(os.linesep + "\t%s processed (I: %0.3f sec - O: %0.3f sec)." % (os.path.basename(imfilename), itime, t1 - t0))
 		log.close()	
+
+	except:
+
+		io_warning = True
+
+		# Print out execution time:
+		log = open(logfilename,"a")
+		log.write(os.linesep + "\tError when writing to TDF %s. File skipped." % (os.path.basename(imfilename)))
+		log.close()	
+
+		pass
 
 	finally:
 		lock.release()	
@@ -96,18 +108,30 @@ def _process(lock, int_from, int_to, offset, abs_offset, files, projorder, outfi
 		
 		# Read input image:
 		t0 = time.time()
-		im = imread(files[i])
+		try:
+			im = imread(files[i])
 
-		# Crop:
-		im = im[crop_top:im.shape[0]-crop_bottom,crop_left:im.shape[1]-crop_right]	
+			# Crop:
+			im = im[crop_top:im.shape[0] - crop_bottom,crop_left:im.shape[1] - crop_right]	
 
-		# Get the timestamp:
-		t = os.path.getmtime(files[i])
-		t1 = time.time() 					
+			# Get the timestamp:
+			t = os.path.getmtime(files[i])
+			t1 = time.time() 					
 								
-		# Save processed image to HDF5 file (atomic procedure - lock used):
-		_write_data(lock, im, i, offset, abs_offset, files[i], t, projorder, tot_files, provenance_dt, 
-					outfile, dsetname, outshape, outtype, logfilename, t1 - t0)
+			# Save processed image to HDF5 file (atomic procedure - lock used):
+			_write_data(lock, im, i, offset, abs_offset, files[i], t, projorder, tot_files, provenance_dt, 
+						outfile, dsetname, outshape, outtype, logfilename, t1 - t0)
+		except:
+
+			io_warning = True
+
+			# Print out execution time:
+			log = open(logfilename,"a")
+			log.write(os.linesep + "\tError when reading %s. File skipped." % (os.path.basename(files[i])))
+			log.close()	
+
+			pass
+
 
 
 def main(argv):          
@@ -211,16 +235,16 @@ def main(argv):
 
 	# Get the from and to number of files to process:
 	int_from = int(argv[0])
-	int_to   = int(argv[1]) # -1 means "all files"
+	int_to = int(argv[1]) # -1 means "all files"
 	   
 	# Get paths:
-	inpath  = argv[2]
+	inpath = argv[2]
 	outfile = argv[3]
 	
-	crop_top    = int(argv[4])  # 0 for all means "no cropping"
+	crop_top = int(argv[4])  # 0 for all means "no cropping"
 	crop_bottom = int(argv[5])
-	crop_left   = int(argv[6])
-	crop_right  = int(argv[7])
+	crop_left = int(argv[6])
+	crop_right = int(argv[7])
 
 	tomoprefix = argv[8]
 	flatprefix = argv[9]   # - means "do not consider flat or darks"
@@ -236,13 +260,13 @@ def main(argv):
 
 	# Get compression factor:
 	compr_opts = int(argv[13])
-	compressionFlag = True;
+	compressionFlag = True
 	if (compr_opts <= 0):
-		compressionFlag = False;
+		compressionFlag = False
 	elif (compr_opts > 9):
 		compr_opts = 9		
 	
-	nr_threads  = int(argv[14])
+	nr_threads = int(argv[14])
 	logfilename = argv[15]	
 	
 	# Check prefixes and path:
@@ -253,7 +277,7 @@ def main(argv):
 	log.write(os.linesep + "\tInput path: %s" % (inpath))	
 	log.write(os.linesep + "\tOutput TDF file: %s" % (outfile))		
 	log.write(os.linesep + "\t--------------")			
-	log.write(os.linesep + "\tProjection file prefix: %s"  % (tomoprefix))
+	log.write(os.linesep + "\tProjection file prefix: %s" % (tomoprefix))
 	log.write(os.linesep + "\tDark file prefix: %s" % (darkprefix))
 	log.write(os.linesep + "\tFlat file prefix: %s" % (flatprefix))
 	log.write(os.linesep + "\t--------------")			
@@ -317,18 +341,18 @@ def main(argv):
 	log.close()	
 
 	# Check extrema (int_to == -1 means all files):
-	if ( (int_to >= num_files) or (int_to == -1) ):
+	if ((int_to >= num_files) or (int_to == -1)):
 		int_from = 0
-		int_to   = num_files - 1
+		int_to = num_files - 1
 
 	# In case of subset specified:
 	num_files = int_to - int_from + 1
 
-	# Prepare output HDF5 output (should this be atomic?):	
+	# Prepare output HDF5 output (should this be atomic?):
 	im = imread(tomo_files[0])	
 
 	# Crop:
-	im = im[crop_top:im.shape[0]-crop_bottom,crop_left:im.shape[1]-crop_right]		
+	im = im[crop_top:im.shape[0] - crop_bottom,crop_left:im.shape[1] - crop_right]		
 				
 	log = open(logfilename,"a")
 	log.write(os.linesep + "\tPreparing the work plan...")	
@@ -336,18 +360,20 @@ def main(argv):
 						
 	#dsetshape = (num_files,) + im.shape
 	if projorder:			
-		#dsetshape = tdf.get_dset_shape(privilege_sino, im.shape[1], im.shape[0], num_files)
+		#dsetshape = tdf.get_dset_shape(privilege_sino, im.shape[1], im.shape[0],
+		#num_files)
 		datashape = tdf.get_dset_shape(im.shape[1], im.shape[0], num_files)
 	else:
-		#dsetshape = tdf.get_dset_shape(privilege_sino, im.shape[1], num_files, im.shape[0])
+		#dsetshape = tdf.get_dset_shape(privilege_sino, im.shape[1], num_files,
+		#im.shape[0])
 		datashape = tdf.get_dset_shape(im.shape[1], num_files, im.shape[0])
 			
 	if not os.path.isfile(outfile):									
-		f = getHDF5( outfile, 'w' )
+		f = getHDF5(outfile, 'w')
 			
 		f.attrs['version'] = '1.0'
 		f.attrs['implements'] = "exchange:provenance"
-		echange_group  = f.create_group( 'exchange' )			
+		echange_group = f.create_group('exchange')			
 			
 		if (compressionFlag):
 			dset = f.create_dataset('exchange/data', datashape, im.dtype, chunks=tdf.get_dset_chunks(im.shape[1]), 
@@ -373,18 +399,18 @@ def main(argv):
 			tot_files = tot_files + num_flats + num_darks
 				
 		# Create provenance dataset:
-		provenance_dt   = numpy.dtype([("filename", numpy.dtype("S255")), ("timestamp",  numpy.dtype("S255"))])
-		metadata_group  = f.create_group( 'provenance' )
+		provenance_dt = numpy.dtype([("filename", numpy.dtype("S255")), ("timestamp",  numpy.dtype("S255"))])
+		metadata_group = f.create_group('provenance')
 		provenance_dset = metadata_group.create_dataset('detector_output', (tot_files,), dtype=provenance_dt)	
 				
-		provenance_dset.attrs['tomo_prefix'] = tomoprefix;
-		provenance_dset.attrs['dark_prefix'] = darkprefix;
-		provenance_dset.attrs['flat_prefix'] = flatprefix;
-		provenance_dset.attrs['first_index'] = int(tomo_files[0][-8:-4]);
+		provenance_dset.attrs['tomo_prefix'] = tomoprefix
+		provenance_dset.attrs['dark_prefix'] = darkprefix
+		provenance_dset.attrs['flat_prefix'] = flatprefix
+		provenance_dset.attrs['first_index'] = int(tomo_files[0][-8:-4])
 			
 		# Handle the metadata:
 		if (os.path.isfile(inpath + 'logfile.xml')):
-			with open (inpath + 'logfile.xml', "r") as file:
+			with open(inpath + 'logfile.xml', "r") as file:
 				xml_command = file.read()
 			tdf.parse_metadata(f, xml_command)
 					
@@ -404,15 +430,16 @@ def main(argv):
 		flat_files = sorted(glob(inpath + flatprefix + '*.tif*'))
 		num_flats = len(flat_files)		
 			
-		if ( num_flats > 0):
+		if (num_flats > 0):
 			
-			# Create acquisition group:				
+			# Create acquisition group:
 			im = imread(flat_files[0])								
-			im = im[crop_top:im.shape[0]-crop_bottom,crop_left:im.shape[1]-crop_right]
+			im = im[crop_top:im.shape[0] - crop_bottom,crop_left:im.shape[1] - crop_right]
 			
-			#flatshape = tdf.get_dset_shape(privilege_sino, im.shape[1], im.shape[0], num_flats)
+			#flatshape = tdf.get_dset_shape(privilege_sino, im.shape[1], im.shape[0],
+			#num_flats)
 			flatshape = tdf.get_dset_shape(im.shape[1], im.shape[0], num_flats)
-			f = getHDF5( outfile, 'a' )	
+			f = getHDF5(outfile, 'a')	
 			if (compressionFlag):
 				dset = f.create_dataset('exchange/data_white', flatshape, im.dtype, chunks=tdf.get_dset_chunks(im.shape[1]), 
 					compression="gzip", compression_opts=compr_opts, shuffle=True, fletcher32=True)
@@ -430,8 +457,10 @@ def main(argv):
 				dset.attrs['axes'] = "theta:y:x"
 			f.close()
 			
-			#process(lock, 0, num_flats - 1, 0, flat_files, True, outfile, 'exchange/data_white', dsetshape, im.dtype, 
-			#	crop_top, crop_bottom, crop_left, crop_right, tot_files, provenance_dt, logfilename )
+			#process(lock, 0, num_flats - 1, 0, flat_files, True, outfile,
+			#'exchange/data_white', dsetshape, im.dtype,
+			#	crop_top, crop_bottom, crop_left, crop_right, tot_files, provenance_dt,
+			#	logfilename )
 				
 		else:	
 			log = open(logfilename,"a")
@@ -444,13 +473,14 @@ def main(argv):
 		dark_files = sorted(glob(inpath + darkprefix + '*.tif*'))
 		num_darks = len(dark_files)				
 			
-		if ( num_darks > 0):
+		if (num_darks > 0):
 			im = imread(dark_files[0])			
-			im = im[crop_top:im.shape[0]-crop_bottom,crop_left:im.shape[1]-crop_right]
+			im = im[crop_top:im.shape[0] - crop_bottom,crop_left:im.shape[1] - crop_right]
 			
-			#darkshape = tdf.get_dset_shape(privilege_sino, im.shape[1], im.shape[0], num_flats)
+			#darkshape = tdf.get_dset_shape(privilege_sino, im.shape[1], im.shape[0],
+			#num_flats)
 			darkshape = tdf.get_dset_shape(im.shape[1], im.shape[0], num_darks)
-			f = getHDF5( outfile, 'a' )	
+			f = getHDF5(outfile, 'a')	
 			if (compressionFlag):
 				dset = f.create_dataset('exchange/data_dark', darkshape, im.dtype, chunks=tdf.get_dset_chunks(im.shape[1]), 
 					compression="gzip", compression_opts=compr_opts, shuffle=True, fletcher32=True)
@@ -468,8 +498,10 @@ def main(argv):
 				dset.attrs['axes'] = "theta:y:x"
 			f.close()		
 			
-			#process(lock, 0, num_darks - 1, num_flats, dark_files, True, outfile, 'exchange/data_dark', dsetshape, im.dtype, 
-			#	crop_top, crop_bottom, crop_left, crop_right,  tot_files, provenance_dt, logfilename )
+			#process(lock, 0, num_darks - 1, num_flats, dark_files, True, outfile,
+			#'exchange/data_dark', dsetshape, im.dtype,
+			#	crop_top, crop_bottom, crop_left, crop_right, tot_files, provenance_dt,
+			#	logfilename )
 
 		else:
 			
@@ -484,28 +516,30 @@ def main(argv):
 		flatdark_offset = 0
 
 	# Spawn the process for the conversion of flat images:
-	if ( num_flats > 0):
+	if (num_flats > 0):
 		Process(target=_process, args=(lock, 0, num_flats - 1, 0, 0, flat_files, True, outfile, 'exchange/data_white', 
-			flatshape, im.dtype, crop_top, crop_bottom, crop_left, crop_right, tot_files, provenance_dt, logfilename )).start()
+			flatshape, im.dtype, crop_top, crop_bottom, crop_left, crop_right, tot_files, provenance_dt, logfilename)).start()
 
 	# Spawn the process for the conversion of dark images:
-	if ( num_darks > 0):
+	if (num_darks > 0):
 		Process(target=_process, args=(lock, 0, num_darks - 1, num_flats, 0, dark_files, True, outfile, 'exchange/data_dark', 
-			darkshape, im.dtype, crop_top, crop_bottom, crop_left, crop_right, tot_files, provenance_dt, logfilename )).start()
+			darkshape, im.dtype, crop_top, crop_bottom, crop_left, crop_right, tot_files, provenance_dt, logfilename)).start()
 
 	# Start the process for the conversion of the projections (or sinograms) in a multi-threaded way:
 	for num in range(nr_threads):
-		start = ( (int_to - int_from + 1) / nr_threads)*num + int_from
+		start = ((int_to - int_from + 1) / nr_threads) * num + int_from
 		if (num == nr_threads - 1):
 			end = int_to
 		else:
-			end = ( (int_to - int_from + 1) / nr_threads)*(num + 1) + int_from - 1
+			end = ((int_to - int_from + 1) / nr_threads) * (num + 1) + int_from - 1
 
 		Process(target=_process, args=(lock, start, end, flatdark_offset, int_from, tomo_files, projorder, outfile, 'exchange/data', 
-				datashape, im.dtype, crop_top, crop_bottom, crop_left, crop_right, tot_files, provenance_dt, logfilename )).start()
+				datashape, im.dtype, crop_top, crop_bottom, crop_left, crop_right, tot_files, provenance_dt, logfilename)).start()
 		
-	#_process(lock, int_from, int_to, flatdark_offset, int_from, tomo_files, projorder, outfile, 'exchange/data', 
-	#		datashape, im.dtype, crop_top, crop_bottom, crop_left, crop_right, tot_files, provenance_dt, logfilename )
-	
+	#_process(lock, int_from, int_to, flatdark_offset, int_from, tomo_files,
+	#            projorder, outfile, 'exchange/data',
+	#		    datashape, im.dtype, crop_top, crop_bottom, crop_left, crop_right,
+	#		    tot_files, provenance_dt, logfilename )
+
 if __name__ == "__main__":
 	main(argv[1:])
