@@ -39,9 +39,9 @@ import xml.etree.ElementTree as et
 
 from numpy import isnan, isinf, nonzero, reshape, interp, float32, concatenate, zeros
 
-DATA_ORDER = 1 # 0 for faster read/write projections, 1 for faster read/write sinograms, everything else for the other direction
-
-def _remove_outliers ( im ):
+DATA_ORDER = 1 # 0 for faster read/write projections, 1 for faster read/write sinograms,
+			   # everything else for the other direction
+def _remove_outliers(im):
 	"""Correct NaN pixels by inteporlation
 
 	Parameters
@@ -50,7 +50,7 @@ def _remove_outliers ( im ):
 		Image data as numpy array. 
 	
 	"""
-	dt   = im.dtype
+	dt = im.dtype
 	im_f = im.flatten().astype(float32)	
 
 	# Padding for better interpolation in case of outliers close to the margins:
@@ -71,7 +71,7 @@ def _remove_outliers ( im ):
 	# Return:
 	return im.astype(dt)
 
-def parse_metadata( f, xml_command ):
+def parse_metadata(f, xml_command):
 	"""Fill the specified HDF5 file with metadata according to the DataExchange initiative.
 	The metadata in input are described in a XML format.
 
@@ -87,24 +87,25 @@ def parse_metadata( f, xml_command ):
 	root = et.fromstring(xml_command)		
 	
 	# Create measurement group
-	measurement  = f.create_group( 'measurement' )
+	measurement = f.create_group('measurement')
 	f.attrs['implements'] = "exchange:measurement:provenance"
 	
 	# Sample:
-	sample =  measurement.create_group( 'sample' )	
+	sample = measurement.create_group('sample')	
 	for el in root.findall('dataset'):				
 		dset = sample.create_dataset('name', data = el.text)	
 		
 	# Instrument:
-	instrument =  measurement.create_group( 'instrument' )		
+	instrument = measurement.create_group('instrument')		
 	dset = instrument.create_dataset('name', data = 'SYRMEP')
 	
 	# Detector:
 	detector = instrument.create_group('detector')	
 	for el in root.findall('DETECTOR/model_name'):			
 		dset = detector.create_dataset('model', data = el.text)
-	#for el in root.findall('DETECTOR/exp_time'):			
-	#	dset = detector.create_dataset('exposure_time', data = float(el.text)/1000.0, dtype = 'f')
+	#for el in root.findall('DETECTOR/exp_time'):
+	#	dset = detector.create_dataset('exposure_time', data =
+	#	float(el.text)/1000.0, dtype = 'f')
 	#	dset.attrs['units'] = 's'
 	for el in root.findall('DETECTOR/bin'):			
 		dset = detector.create_dataset('binning', data = int(el.text), dtype = 'i')		
@@ -185,7 +186,7 @@ def parse_metadata( f, xml_command ):
 		dset = slits_vacuum.create_dataset('y2', data = float(val[0]), dtype = 'f')
 		dset.attrs['units'] = val[1]
 		
-def read_tomo( dataset, index ):
+def read_tomo(dataset, index):
 	"""Extract the tomographic projection at the specified relative index from the HDF5 dataset.
 
 	Parameters
@@ -198,21 +199,22 @@ def read_tomo( dataset, index ):
 	"""
 	
 	#if (DATA_ORDER == 0):
-	#	return dataset[index,:,:]	
+	#	return dataset[index,:,:]
 	#elif (DATA_ORDER == 1):
-	#	return dataset[:,index,:]	
+	#	return dataset[:,index,:]
 	#else:
 	#	return dataset[:,:,index]
 	if (DATA_ORDER == 0):
 		out = np.empty((dataset.shape[1],dataset.shape[2]), dtype=dataset.dtype)
 		dataset.read_direct(out, np.s_[index,:,:])
-		return _remove_outliers(out)
-	else: # (DATA_ORDER == 1):	
+		
+	else: # (DATA_ORDER == 1):
 		out = np.empty((dataset.shape[0],dataset.shape[2]), dtype=dataset.dtype)
 		dataset.read_direct(out, np.s_[:,index,:])
-		return _remove_outliers(out)
 
-def read_sino( dataset, index ):
+	return _remove_outliers(out)
+
+def read_sino(dataset, index):
 	"""Extract the sinogram at the specified relative index from the HDF5 dataset.
 
 	Parameters
@@ -225,21 +227,22 @@ def read_sino( dataset, index ):
 	"""
 
 	#if (DATA_ORDER == 0):
-	#	return dataset[:,index,:]	
+	#	return dataset[:,index,:]
 	#elif (DATA_ORDER == 1):
-	#	return dataset[index,:,:]		
+	#	return dataset[index,:,:]
 	#else:
-	#	return dataset[:,:,index]		
+	#	return dataset[:,:,index]
 	if (DATA_ORDER == 0):
 		out = np.empty((dataset.shape[0],dataset.shape[2]), dtype=dataset.dtype)
 		dataset.read_direct(out, np.s_[:,index,:])		
-		return _remove_outliers(out)
+		
 	else: # (DATA_ORDER == 1):
 		out = np.empty((dataset.shape[1],dataset.shape[2]), dtype=dataset.dtype)
 		dataset.read_direct(out, np.s_[index,:,:])
-		return _remove_outliers(out)
+		
+	return _remove_outliers(out)
 
-def write_tomo( dataset, index, im ):
+def write_tomo(dataset, index, im):
 	"""Modify the tomographic projection at the specified relative index from the HDF5 dataset 
 	with the image passed as input.
 
@@ -258,7 +261,7 @@ def write_tomo( dataset, index, im ):
 	else: # (DATA_ORDER == 1):
 		dataset[:,index,:] = im	
 
-def write_sino( dataset, index, im ):
+def write_sino(dataset, index, im):
 	"""Modify the sinogram at the specified relative index from the HDF5 dataset 
 	with the image passed as input.
 
@@ -277,7 +280,7 @@ def write_sino( dataset, index, im ):
 	else: # (DATA_ORDER == 1):
 		dataset[index,:,:] = im		
 	
-def get_nr_projs ( dataset ):
+def get_nr_projs(dataset):
 	"""Get the number of projections of the input dataset.
 
 	Parameters
@@ -291,7 +294,7 @@ def get_nr_projs ( dataset ):
 	else: # (DATA_ORDER == 1):
 		return dataset.shape[1]		
 	
-def get_nr_sinos ( dataset ):
+def get_nr_sinos(dataset):
 	"""Get the number of sinograms (or slices) of the input dataset.
 
 	Parameters
@@ -305,7 +308,7 @@ def get_nr_sinos ( dataset ):
 	else: # (DATA_ORDER == 1):
 		return dataset.shape[0]	
 		
-def get_det_size ( dataset ):
+def get_det_size(dataset):
 	"""Get the width of the detector (nr of pixels) of the input dataset.
 
 	Parameters
@@ -316,7 +319,7 @@ def get_det_size ( dataset ):
 	"""
 	return dataset.shape[2]	
 	
-def get_dset_shape ( det_size, fov_height, nr_proj ):
+def get_dset_shape(det_size, fov_height, nr_proj):
 	"""Get the shape of the dataset by arranging the input parameters.
 
 	Parameters
@@ -334,7 +337,7 @@ def get_dset_shape ( det_size, fov_height, nr_proj ):
 	else: # (DATA_ORDER == 1):
 		return (fov_height, nr_proj, det_size)		
 		
-def get_dset_chunks ( det_size ):
+def get_dset_chunks(det_size):
 	"""Get a good chunk combination. This function needs improvement...
 
 	Parameters

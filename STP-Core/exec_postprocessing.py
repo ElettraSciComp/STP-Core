@@ -32,7 +32,8 @@ from os.path import sep, basename, exists
 from time import time
 from multiprocessing import Process, Lock
 
-from postprocess.postprocess import postprocess
+from postprocess.polarfilter import polarfilter
+from postprocess.croprescale import croprescale
 from tifffile import imread, imsave
 
 
@@ -50,7 +51,7 @@ def _write_log(lock, fname, logfilename, cputime, iotime):
 	finally:
 		lock.release()	
 
-def _process(lock, int_from, int_to, files, outpath, convert_opt, crop_opt, outprefix, logfilename):
+def _process(lock, int_from, int_to, files, outpath, polarfilt_opt, convert_opt, crop_opt, outprefix, logfilename):
 
 	# Process the required subset of images:
 	for i in range(int_from, int_to + 1):                 
@@ -59,9 +60,12 @@ def _process(lock, int_from, int_to, files, outpath, convert_opt, crop_opt, outp
 		t0 = time() 
 		im = imread(files[i])
 		t1 = time() 
+
+		# Filter (if required):
+		im = polarfilter(im, polarfilt_opt)
 			
 		# Post process the image:
-		im = postprocess(im, convert_opt, crop_opt)	
+		im = croprescale(im, convert_opt, crop_opt)	
 
 		# Write down post-processed slice:
 		t2 = time()
@@ -70,7 +74,7 @@ def _process(lock, int_from, int_to, files, outpath, convert_opt, crop_opt, outp
 		t3 = time()
 								
 		# Write log (atomic procedure - lock used):
-		_write_log(lock, fname, logfilename, t2 - t1, (t3 - t2) + (t1 - t0) )
+		_write_log(lock, fname, logfilename, t2 - t1, (t3 - t2) + (t1 - t0))
 
 
 def main(argv):          
@@ -107,14 +111,15 @@ def main(argv):
 	if not outpath.endswith(sep): outpath += sep
 
 	# Get parameters:
-	convert_opt = argv[4]
-	crop_opt = argv[5]	
+	polarfilt_opt = argv[4]
+	convert_opt = argv[5]
+	crop_opt = argv[6]	
 
-	outprefix = argv[6]
+	outprefix = argv[7]
 
 	# Number of threads to use and logfile:
-	nr_threads = int(argv[7])
-	logfilename = argv[8]		
+	nr_threads = int(argv[8])
+	logfilename = argv[9]		
 
 	# Get the files in infile:
 	log = open(logfilename,"w")
@@ -151,21 +156,23 @@ def main(argv):
 	log.write(linesep + "\tInput folder browsed correctly.")	
 	log.close()	
 
-	# Run several threads for independent computation without waiting for threads completion:
+	# Run several threads for independent computation without waiting for threads
+	# completion:
 	for num in range(nr_threads):
-		start = ( (int_to - int_from + 1) / nr_threads)*num + int_from
+		start = ((int_to - int_from + 1) / nr_threads) * num + int_from
 		if (num == nr_threads - 1):
 			end = int_to
 		else:
-			end = ( (int_to - int_from + 1) / nr_threads)*(num + 1) + int_from - 1
-		Process(target=_process, args=(lock, start, end, files, outpath, convert_opt, crop_opt, outprefix, logfilename )).start()
+			end = ((int_to - int_from + 1) / nr_threads) * (num + 1) + int_from - 1
+		Process(target=_process, args=(lock, start, end, files, outpath, polarfilt_opt, convert_opt, crop_opt, outprefix, logfilename)).start()
 
 	#start = 0
 	#end = num_files - 1
-	#process(lock, start, end, files, outpath, convert_opt, crop_opt, outprefix, logfilename )
+	#process(lock, start, end, files, outpath, convert_opt, crop_opt, outprefix,
+	#logfilename )
 
-	#0 -1 C:\Temp\BrunGeorgos C:\Temp\BrunGeorgos\slice_8 linear8:-0.01;0.01 10:10:10:20 slice C:\Temp\log_00_conv.txt
-
+	#0 -1 C:\Temp\BrunGeorgos C:\Temp\BrunGeorgos\slice_8 linear8:-0.01;0.01
+	#10:10:10:20 slice C:\Temp\log_00_conv.txt
 
 if __name__ == "__main__":
 	main(argv[1:])

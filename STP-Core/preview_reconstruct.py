@@ -50,7 +50,8 @@ from reconstruct.rec_mr_fbp import recon_mr_fbp
 from reconstruct.rec_gridrec import recon_gridrec
 #from reconstruct.rec_sirt_fbp import recon_sirt_fbp
 
-from postprocess.postprocess import postprocess
+from postprocess.polarfilter import polarfilter
+from postprocess.croprescale import croprescale
 
 from utils.padding import upperPowerOfTwo, padImage, padSmoothWidth
 from utils.caching import cache2plan, plan2cache
@@ -194,8 +195,8 @@ def process(sino_idx, num_sinos, infile, outfile, preprocessing_required, corr_p
 			ringrem, phaseretrieval_required, phrtmethod, phrt_param1,
 			phrt_param2, energy, distance, pixsize, phrtpad, approx_win, angles, angles_projfrom, angles_projto,
 			offset, logtransform, recpar, circle, scale, pad, method, rolling, roll_shift,
-			zerone_mode, dset_min, dset_max, decim_factor, downsc_factor, corr_offset, postprocess_required, convert_opt, 
-			crop_opt, dynamic_ff, EFF, filtEFF, im_dark, nr_threads, logfilename, tmppath):
+			zerone_mode, dset_min, dset_max, decim_factor, downsc_factor, corr_offset, postprocess_required, 
+            polarfilt_opt, convert_opt, crop_opt, dynamic_ff, EFF, filtEFF, im_dark, nr_threads, logfilename, tmppath):
 	"""To do...
 
 	"""
@@ -377,8 +378,9 @@ def process(sino_idx, num_sinos, infile, outfile, preprocessing_required, corr_p
 					zerone_mode, dset_min, dset_max, corr_offset, rolling, roll_shift, tmppath).astype(float32)	
 
 	# Apply post-processing (if required):
-	if postprocess_required:
-		im = postprocess(im, convert_opt, crop_opt)
+	if postprocess_required:        
+		im = polarfilter(im, polarfilt_opt)
+		im = croprescale(im, convert_opt, crop_opt)
 	else:
 		# Create the circle mask for fancy output:
 		if (circle == True):
@@ -476,34 +478,35 @@ def main(argv):
 	
 	# Parameters for postprocessing:
 	postprocess_required = True if argv[28] == "True" else False
-	convert_opt = argv[29]
-	crop_opt = argv[30]
+	polarfilt_opt = argv[29]
+	convert_opt = argv[30]
+	crop_opt = argv[31]
 
 	# Parameters for on-the-fly phase retrieval:
-	phaseretrieval_required = True if argv[31] == "True" else False		
-	phrtmethod = int(argv[32])
-	phrt_param1 = double(argv[33])   # param1( e.g.  regParam, or beta)
-	phrt_param2 = double(argv[34])   # param2( e.g.  thresh or delta)
-	energy = double(argv[35])
-	distance = double(argv[36])    
-	pixsize = double(argv[37]) / 1000.0 # pixsixe from micron to mm:
-	phrtpad = True if argv[38] == "True" else False
-	approx_win = int(argv[39])	
+	phaseretrieval_required = True if argv[32] == "True" else False		
+	phrtmethod = int(argv[33])
+	phrt_param1 = double(argv[34])   # param1( e.g.  regParam, or beta)
+	phrt_param2 = double(argv[35])   # param2( e.g.  thresh or delta)
+	energy = double(argv[36])
+	distance = double(argv[37])    
+	pixsize = double(argv[38]) / 1000.0 # pixsixe from micron to mm:
+	phrtpad = True if argv[39] == "True" else False
+	approx_win = int(argv[40])	
 
-	angles_projfrom = int(argv[40])	
-	angles_projto = int(argv[41])	
+	angles_projfrom = int(argv[41])	
+	angles_projto = int(argv[42])	
 
-	rolling = True if argv[42] == "True" else False
-	roll_shift = int(int(argv[43]) / decim_factor)
+	rolling = True if argv[43] == "True" else False
+	roll_shift = int(int(argv[44]) / decim_factor)
 
-	preprocessingplan_fromcache = True if argv[44] == "True" else False
-	dynamic_ff = True if argv[45] == "True" else False
+	preprocessingplan_fromcache = True if argv[45] == "True" else False
+	dynamic_ff = True if argv[46] == "True" else False
 
-	nr_threads = int(argv[46])	
-	tmppath = argv[47]	
+	nr_threads = int(argv[47])	
+	tmppath = argv[48]	
 	if not tmppath.endswith(sep): tmppath += sep
 		
-	logfilename = argv[48]		
+	logfilename = argv[49]		
 			
 	# Open the HDF5 file:
 	f_in = getHDF5(infile, 'r')
@@ -613,7 +616,8 @@ def main(argv):
 				phrt_param2, energy, distance, pixsize, phrtpad, approx_win, angles, angles_projfrom, 
 				angles_projto, offset, logtrsf, recpar, circle, scale, overpad, reconmethod, rolling, 
 				roll_shift, zerone_mode, dset_min, dset_max, decim_factor, downsc_factor, corr_offset, 
-				postprocess_required, convert_opt, crop_opt, dynamic_ff, EFF, filtEFF, im_dark, nr_threads, logfilename, tmppath)		
+				postprocess_required, polarfilt_opt, convert_opt, crop_opt, dynamic_ff, EFF, filtEFF, 
+                im_dark, nr_threads, logfilename, tmppath)		
 
 	# Sample:
 	# 311 C:\Temp\BrunGeorgos.tdf C:\Temp\BrunGeorgos.raw 3.1416 -31.0 shepp-logan

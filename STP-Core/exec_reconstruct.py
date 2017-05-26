@@ -46,7 +46,8 @@ from reconstruct.rec_fista_tv import recon_fista_tv
 from reconstruct.rec_mr_fbp import recon_mr_fbp
 from reconstruct.rec_gridrec import recon_gridrec
 
-from postprocess.postprocess import postprocess
+from postprocess.polarfilter import polarfilter
+from postprocess.croprescale import croprescale
 
 from utils.padding import upperPowerOfTwo, padImage, padSmoothWidth
 
@@ -380,7 +381,7 @@ def process_gridrec(lock, int_from, int_to, num_sinos, infile, outpath, preproce
 			norm_sx, norm_dx, flat_end, half_half, half_half_line, ext_fov, ext_fov_rot_right, ext_fov_overlap, 
 			ext_fov_normalize, ext_fov_average, ringrem, angles, angles_projfrom, angles_projto,
 			offset, logtransform, param1, circle, scale, pad, rolling, roll_shift, zerone_mode, dset_min, dset_max, decim_factor, 
-			downsc_factor, corr_offset,	postprocess_required, convert_opt, crop_opt, dynamic_ff, EFF, filtEFF, im_dark, 
+			downsc_factor, corr_offset,	postprocess_required, polarfilt_opt, convert_opt, crop_opt, dynamic_ff, EFF, filtEFF, im_dark, 
 			outprefix, logfilename):
 	"""To do...
 
@@ -450,8 +451,14 @@ def process_gridrec(lock, int_from, int_to, num_sinos, infile, outpath, preproce
 
 		# Appy post-processing (if required):
 		if postprocess_required:
-			im1 = postprocess(im1, convert_opt, crop_opt, circle)
-			im2 = postprocess(im2, convert_opt, crop_opt, circle)
+
+			# Filter (if required):
+			im1 = polarfilter(im1, polarfilt_opt)    
+			im2 = polarfilter(im2, polarfilt_opt)
+
+			im1 = croprescale(im1, convert_opt, crop_opt, circle)
+			im2 = croprescale(im2, convert_opt, crop_opt, circle)
+
 		else:
 			# Create the circle mask for fancy output:
 			if (circle == True):
@@ -486,8 +493,8 @@ def process(lock, int_from, int_to, num_sinos, infile, outpath, preprocessing_re
 			flat_end, half_half, half_half_line, ext_fov, ext_fov_rot_right, ext_fov_overlap, ext_fov_normalize, ext_fov_average,
 			ringrem, angles, angles_projfrom, angles_projto, offset, logtransform, param1, circle, scale, pad, method, 
 			rolling, roll_shift, zerone_mode, dset_min, dset_max, decim_factor, 
-			downsc_factor, corr_offset,	postprocess_required, convert_opt, crop_opt, dynamic_ff, EFF, filtEFF, im_dark, 
-			outprefix, logfilename):
+			downsc_factor, corr_offset,	postprocess_required, polarfilt_opt, convert_opt, crop_opt, dynamic_ff, EFF, 
+			filtEFF, im_dark, outprefix, logfilename):
 	"""To do...
 
 	"""
@@ -592,8 +599,9 @@ def process(lock, int_from, int_to, num_sinos, infile, outpath, preprocessing_re
 						zerone_mode, dset_min, dset_max, decim_factor, downsc_factor, corr_offset).astype(float32)			
 		
 		# Apply post-processing (if required):
-		if postprocess_required:
-			im = postprocess(im, convert_opt, crop_opt)
+		if postprocess_required:            
+			im = polarfilter(im, polarfilt_opt)
+			im = croprescale(im, convert_opt, crop_opt)
 		else:
 			# Create the circle mask for fancy output:
 			if (circle == True):
@@ -856,7 +864,7 @@ def main(argv):
 						ext_fov_overlap, ext_fov_normalize, ext_fov_average, ringrem, angles, angles_projfrom, angles_projto, 
 						offset, logtrsf, param1, circle, scale, overpad, rolling, roll_shift,
 						zerone_mode, dset_min, dset_max, decim_factor, downsc_factor, corr_offset, 
-						postprocess_required, convert_opt, crop_opt, dynamic_ff, EFF, filtEFF, im_dark, outprefix, 
+						postprocess_required, polarfilt_opt, convert_opt, crop_opt, dynamic_ff, EFF, filtEFF, im_dark, outprefix, 
 						logfilename )).start()
 		else:
 			Process(target=process, args=(lock, start, end, num_sinos, infile, outpath, preprocessing_required, skipflat, 
@@ -864,7 +872,7 @@ def main(argv):
 						ext_fov_overlap, ext_fov_normalize, ext_fov_average, ringrem, angles, angles_projfrom, angles_projto, 
 						offset, logtrsf, param1, circle, scale, overpad, reconmethod, rolling, roll_shift,
 						zerone_mode, dset_min, dset_max, decim_factor, downsc_factor, corr_offset, 
-						postprocess_required, convert_opt, crop_opt, dynamic_ff, EFF, filtEFF, im_dark, outprefix, 
+						postprocess_required, polarfilt_opt, convert_opt, crop_opt, dynamic_ff, EFF, filtEFF, im_dark, outprefix, 
 						logfilename )).start()
 
 	#start = int_from

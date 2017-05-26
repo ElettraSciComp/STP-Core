@@ -33,7 +33,8 @@ from time import time
 from numpy import float32, nanmin, nanmax
 from multiprocessing import Process, Lock
 
-from postprocess.postprocess import postprocess
+from postprocess.croprescale import croprescale
+from postprocess.polarfilter import polarfilter
 from tifffile import imread, imsave
 
 
@@ -70,14 +71,14 @@ def main(argv):
 	if not inpath.endswith(sep): inpath += sep
 
 	# Get parameters:
-	convert_opt = argv[3]
-	crop_opt = argv[4]	
-	crop_opt = '0:0:0:0'
+	polarfilt_opt = argv[3]
+	convert_opt = argv[4]
+	crop_opt = argv[5]	
 
-	outprefix = argv[5]		
-	logfilename = argv[6]	
+	outprefix = argv[6]		
+	logfilename = argv[7]	
 
-	# Get the files in infile:		
+	# Get the files in infile:
 	files = sorted(glob(inpath + '*.tif*'))
 	num_files = len(files)		
 	
@@ -87,12 +88,15 @@ def main(argv):
 	# Read the image:
 	im = imread(files[idx])
 
-	# Process the image:		
-	im = postprocess(im, convert_opt, crop_opt)	
+	# Filter (if required):
+	im = polarfilter(im, polarfilt_opt)
 
-	# Write down reconstructed preview file (file name modified with metadata):		
+	# Process the image:		
+	im = croprescale(im, convert_opt, crop_opt)	
+
+	# Write down reconstructed preview file (file name modified with metadata):
 	im = im.astype(float32)
-	outfile = outfile + '_' + str(im.shape[1]) + 'x' + str(im.shape[0]) + '_' + str( nanmin(im)) + '$' + str( nanmax(im) )	
+	outfile = outfile + '_' + str(im.shape[1]) + 'x' + str(im.shape[0]) + '_' + str(nanmin(im)) + '$' + str(nanmax(im))	
 	im.tofile(outfile)
 
 

@@ -27,7 +27,7 @@
 
 from numpy import uint8, uint16
 
-def postprocess( im, convert_opt, crop_opt ):	
+def croprescale( im, convert_opt, crop_opt ):	
 	"""Post-process a reconstructed image.
 
     Parameters

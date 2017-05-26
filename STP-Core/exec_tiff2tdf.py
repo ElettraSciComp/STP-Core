@@ -44,7 +44,7 @@ io_warning = False
 
 
 def _write_data(lock, im, index, offset, abs_offset, imfilename, timestamp, projorder, tot_files, 
-				provenance_dt, outfile, dsetname, outshape, outtype, logfilename, itime):    	      
+				provenance_dt, outfile, dsetname, outshape, outtype, logfilename, itime, n_images):    	      
 	"""To do...
 
 	"""
@@ -69,6 +69,7 @@ def _write_data(lock, im, index, offset, abs_offset, imfilename, timestamp, proj
 			f_out_dset.attrs['min'] = str(numpy.amin(tmp[:]))
 		if (numpy.amax(tmp[:]) > float(f_out_dset.attrs['max'])):
 			f_out_dset.attrs['max'] = str(numpy.amax(tmp[:]))	
+		f_out_dset.attrs['avg'] = str(float(f_out_dset.attrs['avg']) + numpy.mean(tmp[:])/(1.0*n_images) )
 			
 		# Save provenance metadata:
 		provenance_dset = f_out.require_dataset('provenance/detector_output', (tot_files,), dtype=provenance_dt)	
@@ -120,7 +121,7 @@ def _process(lock, int_from, int_to, offset, abs_offset, files, projorder, outfi
 								
 			# Save processed image to HDF5 file (atomic procedure - lock used):
 			_write_data(lock, im, i, offset, abs_offset, files[i], t, projorder, tot_files, provenance_dt, 
-						outfile, dsetname, outshape, outtype, logfilename, t1 - t0)
+						outfile, dsetname, outshape, outtype, logfilename, t1 - t0, len(files))
 		except:
 
 			io_warning = True
@@ -389,7 +390,8 @@ def main(argv):
 		tmp = im[:].astype(numpy.float32)
 		tmp = tmp[numpy.nonzero(numpy.isfinite(tmp))]
 		dset.attrs['min'] = str(numpy.amin(tmp[:]))
-		dset.attrs['max'] = str(numpy.amax(tmp[:]))	
+		dset.attrs['max'] = str(numpy.amax(tmp[:]))
+		dset.attrs['avg'] = str(0.0)	
 
 		# Get the total number of files to consider:
 		tot_files = num_files	
@@ -450,6 +452,7 @@ def main(argv):
 			tmp = tmp[numpy.nonzero(numpy.isfinite(tmp))]		
 			dset.attrs['min'] = str(numpy.amin(tmp[:]))
 			dset.attrs['max'] = str(numpy.amax(tmp[:]))
+			dset.attrs['avg'] = str(0.0)
 			
 			if privilege_sino:			
 				dset.attrs['axes'] = "y:theta:x"
@@ -491,7 +494,8 @@ def main(argv):
 			tmp = tmp[numpy.nonzero(numpy.isfinite(tmp))]
 			dset.attrs['min'] = str(numpy.amin(tmp))
 			dset.attrs['max'] = str(numpy.amax(tmp))
-			
+			dset.attrs['avg'] = str(0.0)
+
 			if privilege_sino:			
 				dset.attrs['axes'] = "y:theta:x"
 			else:

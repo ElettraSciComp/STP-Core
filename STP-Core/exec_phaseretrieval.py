@@ -187,7 +187,7 @@ def main(argv):
 
 	outshape = tdf.get_dset_shape(im.shape[1], im.shape[0], num_proj)			
 	f_out = getHDF5(outfile, 'w')
-	f_out_dset = f_out.create_dataset('exchange/data', outshape, float16) 
+	f_out_dset = f_out.create_dataset('exchange/data', outshape, float32) 
 	f_out_dset.attrs['min'] = str(amin(im[:]))
 	f_out_dset.attrs['max'] = str(amax(im[:]))
 	
@@ -210,11 +210,11 @@ def main(argv):
 			end = num_proj - 1
 		else:
 			end = (num_proj / nr_threads)*(num + 1) - 1
-		Process(target=_process, args=(lock, start, end, infile, outfile, outshape, float16, method, plan, logfilename)).start()
+		Process(target=_process, args=(lock, start, end, infile, outfile, outshape, float32, method, plan, logfilename)).start()
 
 	#start = 0
 	#end = num_proj - 1
-	#_process(lock, start, end, infile, outfile, outshape, float16, method, plan, logfilename)
+	#_process(lock, start, end, infile, outfile, outshape, float32, method, plan, logfilename)
 
 	#255 256 C:\Temp\BrunGeorgos_corr.tdf C:\Temp\BrunGeorgos_corr_phrt.tdf 0 1.0 2000.0 22.0 300.0 2.2 False 1 C:\Temp\log_00.txt
 	#255 256 C:\Temp\BrunGeorgos_corr.tdf C:\Temp\BrunGeorgos_corr_phrt.tdf 4 2.5 1.0 22.0 300.0 2.2 False 1 C:\Temp\log_00.txt

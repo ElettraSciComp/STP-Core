@@ -5,7 +5,7 @@
     <SchemaVersion>2.0</SchemaVersion>
     <ProjectGuid>397494a0-035b-4ad0-996a-2799fb86dfcf</ProjectGuid>
     <ProjectHome>.</ProjectHome>
-    <StartupFile>exec_tiff2tdf.py</StartupFile>
+    <StartupFile>preview_reconstruct.py</StartupFile>
     <SearchPath>
     </SearchPath>
     <WorkingDirectory>.</WorkingDirectory>
@@ -17,7 +17,7 @@
     </InterpreterArguments>
     <EnableNativeCodeDebugging>False</EnableNativeCodeDebugging>
     <InterpreterPath>C:\Users\Franz\Documents\Visual Studio 2012\Projects\STP-Gui\STP-Gui\bin\x64\Release\python\python-2.7.10.amd64\python.exe</InterpreterPath>
-    <CommandLineArguments>2300 2400 "J:\Michela_SLS\S072_BrainMichela_17keV_50mm_4x__B5\tif" "C:\Temp\_20170219152557843.tmp" 0 0 0 0 tomo flat dark True True 1 3 "C:\Temp\20170219152516927\_20170219152557843_tiff2tdf_00.txt"</CommandLineArguments>
+    <CommandLineArguments>150 "C:\Temp\Example1.tdf" "C:\Temp\20170523234725902\20170523234826218" 3.14159265358979 -7 shepp-logan 1 False True False True True True 900 False False 0 False False 0 0 False "muenchetal:5;1.8" False 0 FBP_CUDA 1 1 True homomorphic:0.8;0.2 linear8:-0.01;0.01 0:0:0:0 False 5 0.1 2.5 22 150 2.2 True 32 0 1799 True 0 True False 1 "C:\Temp\20170523234725902" "C:\Temp\20170523234725902\_prev_rec_log_00.txt"</CommandLineArguments>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
     <DebugSymbols>true</DebugSymbols>
@@ -32,6 +32,7 @@
     <PtvsTargetsFile>$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)\Python Tools\Microsoft.PythonTools.targets</PtvsTargetsFile>
   </PropertyGroup>
   <ItemGroup>
+    <Folder Include="postprocess\polarfilters\" />
     <Folder Include="stpio\" />
     <Folder Include="phaseretrieval\" />
     <Folder Include="postprocess\" />
@@ -42,13 +43,28 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="exec_edf2tdf.py" />
+    <Compile Include="cloaca.py" />
     <Compile Include="exec_his2tdf.py" />
     <Compile Include="exec_phaseretrieval.py" />
     <Compile Include="exec_postprocessing.py" />
+    <Compile Include="exec_extrapreprocessing.py" />
+    <Compile Include="exec_gdei.py" />
     <Compile Include="exec_preprocessing.py" />
     <Compile Include="exec_reconstruct.py" />
     <Compile Include="exec_tdf2tiff.py" />
     <Compile Include="exec_tiff2tdf.py" />
+    <Compile Include="postprocess\polarfilter.py" />
+    <Compile Include="postprocess\polarfilters\homomorphic.py">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="postprocess\polarfilters\__init__.py">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="preprocess\dynamic_flatfielding_projections.py" />
+    <Compile Include="preprocess\gdei.py">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="preview_extrapreprocessing.py" />
     <Compile Include="stpio\EdfFile.py" />
     <Compile Include="stpio\tdf.py" />
     <Compile Include="stpio\__init__.py" />
@@ -57,7 +73,7 @@
     </Compile>
     <Compile Include="phaseretrieval\tiehom.py" />
     <Compile Include="phaseretrieval\__init__.py" />
-    <Compile Include="postprocess\postprocess.py" />
+    <Compile Include="postprocess\croprescale.py" />
     <Compile Include="postprocess\__init__.py" />
     <Compile Include="preprocess\dynamic_flatfielding.py" />
     <Compile Include="preprocess\extfov_correction.py" />
