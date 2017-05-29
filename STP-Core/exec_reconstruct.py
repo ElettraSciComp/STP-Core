@@ -714,19 +714,20 @@ def main(argv):
 	
 	# Parameters for postprocessing:
 	postprocess_required = True if argv[30] == "True" else False
-	convert_opt = argv[31]
-	crop_opt = argv[32]
+	polarfilt_opt = argv[31]
+	convert_opt = argv[32]
+	crop_opt = argv[33]
 
-	angles_projfrom = int(argv[33])	
-	angles_projto = int(argv[34])
+	angles_projfrom = int(argv[34])	
+	angles_projto = int(argv[35])
 
-	rolling = True if argv[35] == "True" else False
-	roll_shift = int(int(argv[36]) / decim_factor)
+	rolling = True if argv[36] == "True" else False
+	roll_shift = int(int(argv[37]) / decim_factor)
 
-	dynamic_ff 	= True if argv[37] == "True" else False
+	dynamic_ff 	= True if argv[38] == "True" else False
 	
-	nr_threads = int(argv[38])	
-	logfilename = argv[39]	
+	nr_threads = int(argv[39])	
+	logfilename = argv[40]	
 	process_id = int(logfilename[-6:-4])
 	
 	# Check prefixes and path:
