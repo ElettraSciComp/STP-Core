@@ -5,7 +5,7 @@
     <SchemaVersion>2.0</SchemaVersion>
     <ProjectGuid>397494a0-035b-4ad0-996a-2799fb86dfcf</ProjectGuid>
     <ProjectHome>.</ProjectHome>
-    <StartupFile>exec_reconstruct.py</StartupFile>
+    <StartupFile>tools_multioffset.py</StartupFile>
     <SearchPath>
     </SearchPath>
     <WorkingDirectory>.</WorkingDirectory>
@@ -17,7 +17,7 @@
     </InterpreterArguments>
     <EnableNativeCodeDebugging>False</EnableNativeCodeDebugging>
     <InterpreterPath>C:\Users\Franz\Documents\Visual Studio 2012\Projects\STP-Gui\STP-Gui\bin\x64\Release\python\python-2.7.10.amd64\python.exe</InterpreterPath>
-    <CommandLineArguments>23 25 "C:\Temp\Malato_B2_corr_phrt.tdf" "C:\Temp\Malato_B2_corr_phrt\slices" 3.14159265358979 0 ram-lak 1 True False True slice False True True 1500 True True 120 False True 0 0 False "rivers:11;0" False 0 FBP_CUDA 1 1 True homomorphic:0.99;0.2 none:-0.01;0.01 0:0:0:0 0 1499 True 0 False 1 "C:\Temp\20170529135611285\_exec_rec_log_00.txt"</CommandLineArguments>
+    <CommandLineArguments>150 "C:\Temp\Example1.tdf" "C:\Temp\buttami" 3.14159265358979 0 shepp-logan 1 False False False True False False 0 False False 0 False False 0 0 False "rivers:3;0" False 0 FBP_CUDA 1 1 False linear8:-0.01;0.01 0:0:0:0 False 5 0.1 2.5 22 150 2.2 True 32 0 1799 True "C:\Temp\20170727142342572" 3 -40 40 "slice" "C:\Temp\20170727142342572\_multioffset_log_00.txt"</CommandLineArguments>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
     <DebugSymbols>true</DebugSymbols>

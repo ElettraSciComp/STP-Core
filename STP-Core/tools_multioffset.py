@@ -48,7 +48,8 @@ from reconstruct.rec_fista_tv import recon_fista_tv
 from reconstruct.rec_mr_fbp import recon_mr_fbp
 from reconstruct.rec_gridrec import recon_gridrec
 
-from postprocess.postprocess import postprocess
+from postprocess.polarfilter import polarfilter
+from postprocess.croprescale import croprescale
 
 from utils.padding import upperPowerOfTwo, padImage, padSmoothWidth
 from utils.caching import cache2plan, plan2cache
@@ -187,7 +188,7 @@ def reconstruct(im, angles, angles_projfrom, angles_projto, offset, logtransform
 
 		# Apply post-processing (if required):
 		if postprocess_required:
-			im_f = postprocess(im_f, convert_opt, crop_opt)
+			im_f = croprescale(im_f, convert_opt, crop_opt)
 		else:
 			# Create the circle mask for fancy output:
 			if (circle == True):
