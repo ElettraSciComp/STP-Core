@@ -1,4 +1,4 @@
-﻿###########################################################################
+###########################################################################
 # (C) 2016 Elettra - Sincrotrone Trieste S.C.p.A.. All rights reserved.   #
 #                                                                         #
 #                                                                         #
@@ -28,7 +28,7 @@
 from sys import argv, exit
 from os import remove, sep,  linesep
 from os.path import exists
-from numpy import float32, amin, amax, isscalar, finfo, empty_like, minimum, maximum, tile, log
+from numpy import float32, amin, amax, isscalar, finfo, empty_like, minimum, maximum, tile, log, mean, array
 from time import time
 from multiprocessing import Process, Lock
 
@@ -64,11 +64,9 @@ def _shift_horiz(im, n):
 		out[:,:n] = im[:,-n:]
 	return out
 
-def _write_data(lock, im, index, outfile, outshape, outtype, logfilename, cputime, itime):    	      
+def _write_data(im, index, outfile, outshape, outtype):    	      
 
-	lock.acquire()
-	try:        
-		t0 = time() 			
+			
 		f_out = getHDF5(outfile, 'a')					 
 		f_out_dset = f_out.require_dataset('exchange/data', outshape, outtype, chunks=tdf.get_dset_chunks(outshape[0])) 
 		tdf.write_sino(f_out_dset,index,im.astype(outtype))
@@ -79,15 +77,7 @@ def _write_data(lock, im, index, outfile, outshape, outtype, logfilename, cputim
 		if (amax(im[:]) > float(f_out_dset.attrs['max'])):
 			f_out_dset.attrs['max'] = str(amax(im[:]))		
 		f_out.close()			
-		t1 = time() 
-
-		# Print out execution time:
-		log = open(logfilename,"a")
-		log.write(linesep + "\tsino_%s processed (CPU: %0.3f sec - I/O: %0.3f sec)." % (str(index).zfill(4), cputime, t1 - t0 + itime))
-		log.close()	
-
-	finally:
-		lock.release()	
+		
 
 def _process(lock, int_from, int_to, num_sinos, infile_1, infile_2, infile_3, outfile_abs, outfile_ref, outfile_sca, 
 			 r1, r2, r3, d1, d2, d3, dd1, dd2, dd3, 
@@ -106,39 +96,45 @@ def _process(lock, int_from, int_to, num_sinos, infile_1, infile_2, infile_3, ou
 		if "/tomo" in f_in:
 			dset = f_in['tomo']
 			flat_avg1 = float(f_in['flat'].attrs['avg'])
+			dark_avg1 = float(f_in['dark'].attrs['avg'])
 		else: 
 			dset = f_in['exchange/data']
 			flat_avg1 = float(f_in['exchange/data_white'].attrs['avg'])
+			dark_avg1 = float(f_in['exchange/data_dark'].attrs['avg'])
 		# Processing in the sinogram domain so a vertical shift of the
 		# projection requires loading a different sinogram:
-		idx = min(max(0,i - shiftVert_1),num_sinos)
-		im_1 = tdf.read_sino(dset,idx).astype(float32)		
+		idx1 = min(max(0,i - shiftVert_1),num_sinos-1)
+		im_1 = tdf.read_sino(dset, idx1).astype(float32)		
 		f_in.close()
 
 		f_in = getHDF5(infile_2, 'r')
 		if "/tomo" in f_in:
 			dset = f_in['tomo']
 			flat_avg2 = float(f_in['flat'].attrs['avg'])
+			dark_avg2 = float(f_in['dark'].attrs['avg'])
 		else: 
 			dset = f_in['exchange/data']
 			flat_avg2 = float(f_in['exchange/data_white'].attrs['avg'])
+			dark_avg2 = float(f_in['exchange/data_dark'].attrs['avg'])
 		# Processing in the sinogram domain so a vertical shift of the
 		# projection requires loading a different sinogram:
-		idx = min(max(0,i - shiftVert_2),num_sinos)
-		im_2 = tdf.read_sino(dset,idx).astype(float32)		
+		idx2 = min(max(0,i - shiftVert_2),num_sinos-1)
+		im_2 = tdf.read_sino(dset, idx2).astype(float32)		
 		f_in.close()
 
 		f_in = getHDF5(infile_3, 'r')
 		if "/tomo" in f_in:
 			dset = f_in['tomo']
 			flat_avg3 = float(f_in['flat'].attrs['avg'])
+			dark_avg3 = float(f_in['dark'].attrs['avg'])
 		else: 
 			dset = f_in['exchange/data']
 			flat_avg3 = float(f_in['exchange/data_white'].attrs['avg'])
+			dark_avg3 = float(f_in['exchange/data_dark'].attrs['avg'])
 		# Processing in the sinogram domain so a vertical shift of the projection
 		# requires loading a different sinogram:
-		idx = min(max(0,i - shiftVert_3),num_sinos)
-		im_3 = tdf.read_sino(dset,idx).astype(float32)		
+		idx3 = min(max(0,i - shiftVert_3),num_sinos-1)
+		im_3 = tdf.read_sino(dset, idx3).astype(float32)		
 		f_in.close()
 		t1 = time() 	
 
@@ -146,9 +142,9 @@ def _process(lock, int_from, int_to, num_sinos, infile_1, infile_2, infile_3, ou
 		if not skipflat_1:
 			if dynamic_ff:
 				# Dynamic flat fielding with downsampling = 2:
-				im_1 = dynamic_flat_fielding(im_1, i, EFF_1, filtEFF_1, 2, im_dark_1, norm_sx, norm_dx)				
+				im_1 = dynamic_flat_fielding(im_1, idx1, EFF_1, filtEFF_1, 2, im_dark_1, norm_sx, norm_dx)				
 			else:
-				im_1 = flat_fielding(im_1, i, plan_1, flat_end, half_half, half_half_line, norm_sx, norm_dx)		
+				im_1 = flat_fielding(im_1, idx1, plan_1, flat_end, half_half, half_half_line, norm_sx, norm_dx)		
 		if ext_fov:
 			im_1 = extfov_correction(im_1, ext_fov_rot_right, ext_fov_overlap, ext_fov_normalize, ext_fov_average)
 		
@@ -161,9 +157,9 @@ def _process(lock, int_from, int_to, num_sinos, infile_1, infile_2, infile_3, ou
 		if not skipflat_2:
 			if dynamic_ff:
 				# Dynamic flat fielding with downsampling = 2:
-				im_2 = dynamic_flat_fielding(im_2, i, EFF_2, filtEFF_2, 2, im_dark_2, norm_sx, norm_dx)
+				im_2 = dynamic_flat_fielding(im_2, idx2, EFF_2, filtEFF_2, 2, im_dark_2, norm_sx, norm_dx)
 			else:
-				im_2 = flat_fielding(im_2, i, plan_2, flat_end, half_half, half_half_line, norm_sx, norm_dx)			
+				im_2 = flat_fielding(im_2, idx2, plan_2, flat_end, half_half, half_half_line, norm_sx, norm_dx)			
 		if ext_fov:
 			im_2 = extfov_correction(im_2, ext_fov_rot_right, ext_fov_overlap, ext_fov_normalize, ext_fov_average)
 		
@@ -176,9 +172,9 @@ def _process(lock, int_from, int_to, num_sinos, infile_1, infile_2, infile_3, ou
 		if not skipflat_3:
 			if dynamic_ff:
 				# Dynamic flat fielding with downsampling = 2:
-				im_3 = dynamic_flat_fielding(im_3, i, EFF_3, filtEFF_3, 2, im_dark_3, norm_sx, norm_dx)
+				im_3 = dynamic_flat_fielding(im_3, idx3, EFF_3, filtEFF_3, 2, im_dark_3, norm_sx, norm_dx)
 			else:
-				im_3 = flat_fielding(im_3, i, plan_3, flat_end, half_half, half_half_line, norm_sx, norm_dx)			
+				im_3 = flat_fielding(im_3, idx3, plan_3, flat_end, half_half, half_half_line, norm_sx, norm_dx)			
 		if ext_fov:
 			im_3 = extfov_correction(im_3, ext_fov_rot_right, ext_fov_overlap, ext_fov_normalize, ext_fov_average)
 		
@@ -203,18 +199,31 @@ def _process(lock, int_from, int_to, num_sinos, infile_1, infile_2, infile_3, ou
 			im_3 = _shift_horiz(im_3, shiftHoriz_3)
 
 		# Re-normalize with average of the flat-field images:
-		im_1 = im_1 * flat_avg1
-		im_2 = im_2 * flat_avg2
-		im_3 = im_3 * flat_avg3
+		max_val = amax(array([mean(flat_avg1 - dark_avg1), mean(flat_avg2 - dark_avg2), mean(flat_avg3 - dark_avg3)]))
+
+		im_1 = im_1 * (flat_avg1 - dark_avg1) / max_val
+		im_2 = im_2 * (flat_avg2 - dark_avg2) / max_val
+		im_3 = im_3 * (flat_avg3 - dark_avg3) / max_val
 
 		# Apply GDEI:
 		(im_abs, im_ref, im_sca) = gdei(im_1, im_2, im_3, r1, r2, r3, d1, d2, d3, dd1, dd2, dd3)
-		
 
-		# Save processed image to HDF5 file (atomic procedure - lock used):
-		_write_data(lock, im_abs, i, outfile_abs, outshape, outtype, logfilename, t2 - t1, t1 - t0)
-		_write_data(lock, im_ref, i, outfile_ref, outshape, outtype, logfilename, t2 - t1, t1 - t0)
-		_write_data(lock, im_sca, i, outfile_sca, outshape, outtype, logfilename, t2 - t1, t1 - t0)
+		# Save processed image to HDF5 file (atomic procedure - lock used):		
+		lock.acquire()
+		try:        
+			t3 = time() 
+			_write_data(im_abs, i, outfile_abs, outshape, outtype)
+			_write_data(im_ref, i, outfile_ref, outshape, outtype)
+			_write_data(im_sca, i, outfile_sca, outshape, outtype)
+			t4 = time() 
+
+			# Print out execution time:
+			log = open(logfilename,"a")
+			log.write(linesep + "\tsino_%s processed (CPU: %0.3f sec - I/O: %0.3f sec)." % (str(i).zfill(4), t2 - t1, (t1 - t0) + (t4 - t3)))
+			log.close()	
+
+		finally:
+			lock.release()	
 
 
 def main(argv):          
@@ -370,7 +379,7 @@ def main(argv):
 			flatprefix_3 = prov_dset_3.attrs['flat_prefix']
 			darkprefix_3 = prov_dset_3.attrs['dark_prefix']
 	
-	# Assuming that what works for the dataset #1 works for the other two:		
+	# Assuming that what works for the dataset #1 works for the other two:
 	num_proj = tdf.get_nr_projs(dset_1)
 	num_sinos = tdf.get_nr_sinos(dset_1)
 	
@@ -525,6 +534,8 @@ def main(argv):
 		outshape = tdf.get_dset_shape(im.shape[1], im.shape[0], num_proj)			
 		
 	f_in_1.close()
+	f_in_2.close()
+	f_in_3.close()
 
 	# Create the output HDF5 files:
 	f_out_abs = getHDF5(outfile_abs, 'w')	
@@ -556,35 +567,38 @@ def main(argv):
 	log = open(logfilename,"a")
 	log.write(linesep + "\tWork plan prepared correctly.")	
 	log.write(linesep + "\t--------------")
-	log.write(linesep + "\tPerforming pre processing...")			
+	log.write(linesep + "\tPerforming GDEI...")			
 	log.close()	
 
 	# Run several threads for independent computation without waiting for threads
 	# completion:
-	#for num in range(nr_threads):
-	#	start = (num_sinos / nr_threads) * num
-	#	if (num == nr_threads - 1):
-	#		end = num_sinos - 1
-	#	else:
-	#		end = (num_sinos / nr_threads) * (num + 1) - 1
-	#	Process(target=_process, args=(lock, start, end, infile, outfile, outshape, float32, skipflat, plan, norm_sx, 
-	#			norm_dx, flat_end, half_half, half_half_line, ext_fov, ext_fov_rot_right, ext_fov_overlap, 
-	#			ext_fov_normalize, ext_fov_average, ringrem, dynamic_ff, EFF, filtEFF, im_dark, logfilename)).start()
-
-
-	start = int_from # 0
-	end = int_to # num_sinos - 1
-	_process( lock, start, end, num_sinos, infile_1, infile_2, infile_3, outfile_abs, outfile_ref, outfile_sca,
+	for num in range(nr_threads):
+		start = (num_sinos / nr_threads) * num
+		if (num == nr_threads - 1):
+			end = num_sinos - 1
+		else:
+			end = (num_sinos / nr_threads) * (num + 1) - 1
+		Process(target=_process, args=(lock, start, end, num_sinos, infile_1, infile_2, infile_3, outfile_abs, outfile_ref, outfile_sca,
 			  r1, r2, r3, d1, d2, d3, dd1, dd2, dd3, 
 			  shiftVert_1, shiftHoriz_1, shiftVert_2, shiftHoriz_2, shiftVert_3, shiftHoriz_3, 
 			  outshape, float32, skipflat_1, skipflat_2, skipflat_3, plan_1, plan_2, plan_3, norm_sx, norm_dx, flat_end, 
 			  half_half, half_half_line, ext_fov, ext_fov_rot_right, ext_fov_overlap, ext_fov_normalize, ext_fov_average,
 			  ringrem, dynamic_ff, EFF_1, EFF_2, EFF_3, filtEFF_1, filtEFF_2, filtEFF_3, im_dark_1, im_dark_2, im_dark_3, 
-			  logfilename )
+			  logfilename)).start()
+
+
+	#start = int_from # 0
+	#end = int_to # num_sinos - 1
+	#_process(lock, start, end, num_sinos, infile_1, infile_2, infile_3, outfile_abs, outfile_ref, outfile_sca,
+	#		  r1, r2, r3, d1, d2, d3, dd1, dd2, dd3, 
+	#		  shiftVert_1, shiftHoriz_1, shiftVert_2, shiftHoriz_2, shiftVert_3, shiftHoriz_3, 
+	#		  outshape, float32, skipflat_1, skipflat_2, skipflat_3, plan_1, plan_2, plan_3, norm_sx, norm_dx, flat_end, 
+	#		  half_half, half_half_line, ext_fov, ext_fov_rot_right, ext_fov_overlap, ext_fov_normalize, ext_fov_average,
+	#		  ringrem, dynamic_ff, EFF_1, EFF_2, EFF_3, filtEFF_1, filtEFF_2, filtEFF_3, im_dark_1, im_dark_2, im_dark_3, 
+	#		  logfilename)
 
 
 	#255 256 C:\Temp\BrunGeorgos.tdf C:\Temp\BrunGeorgos_corr.tdf 0 0 True True
 	#900 False False 0 rivers:11;0 False 1 C:\Temp\log_00.txt
-
 if __name__ == "__main__":
 	main(argv[1:])
