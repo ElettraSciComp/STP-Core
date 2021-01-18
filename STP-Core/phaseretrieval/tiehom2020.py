@@ -41,7 +41,7 @@ from utils.padding import upperPowerOfTwo, padImage
 
 from tifffile import imread, imsave
 
-def tiehom_plan(im, beta, delta, energy, distance, pixsize, padding):
+def tiehom_plan2020(im, beta, delta, energy, distance, pixsize, padding):
 	"""Pre-compute data to save time in further execution of phase_retrieval with TIE-HOM
 	(Paganin's) algorithm.
 
@@ -99,7 +99,7 @@ def tiehom_plan(im, beta, delta, energy, distance, pixsize, padding):
 	u,v = meshgrid(ulim, vlim)
 
 	# Apply formula:
-	den = 1 + distance * delta / mu * (u * u + v * v) + finfo(float32).eps # Avoids division by zero
+	den = 1 - (2 *(distance * delta / mu) / (pixsize * pixsize) ) * (npcos(u * pixsize) + npcos(v * pixsize) - 2) + finfo(float32).eps # Avoids division by zero
 
 	# Shift the denominator and get only real components (half of the
 	# frequencies):
@@ -109,8 +109,9 @@ def tiehom_plan(im, beta, delta, energy, distance, pixsize, padding):
 	return {'dim0':dim0_o, 'dim1':dim1_o ,'npad0':n_pad0, 'npad1':n_pad1, 'den':den , 'mu':mu }
 	
 
-def tiehom(im, plan, nr_threads=2):
-	"""Process a tomographic projection image with the TIE-HOM (Paganin's) phase retrieval algorithm.
+def tiehom2020(im, plan, nr_threads=2):
+	"""Process a tomographic projection image with the Generalized TIE-HOM (Paganin et al 2020) 
+    phase retrieval algorithm.
 
 	Parameters
 	----------

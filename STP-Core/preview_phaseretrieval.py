@@ -35,6 +35,7 @@ from pyfftw.interfaces.cache import enable as pyfftw_cache_enable, disable as py
 from pyfftw.interfaces.cache import set_keepalive_time as pyfftw_set_keepalive_time
 
 from phaseretrieval.tiehom import tiehom, tiehom_plan
+from phaseretrieval.tiehom2020 import tiehom2020, tiehom_plan2020
 from phaseretrieval.phrt   import phrt, phrt_plan
 
 from h5py import File as getHDF5
@@ -128,9 +129,13 @@ def main(argv):
 	# Prepare plan:
 	im = im.astype(float32)
 	if (method == 0):
-		# Paganin's:
+		# Paganin 2002:
 		plan = tiehom_plan (im, param1, param2, energy, distance, pixsize, pad)		
 		im = tiehom(im, plan).astype(float32)	
+	elif (method == 1):
+		# Paganin 2020:
+		plan = tiehom_plan2020 (im, param1, param2, energy, distance, pixsize, pad)		
+		im = tiehom2020(im, plan).astype(float32)	
 	else:
 		plan = phrt_plan (im, energy, distance, pixsize, param2, param1, method, pad)
 		im = phrt(im, plan, method).astype(float32)				

@@ -34,6 +34,8 @@ from numpy import arange, meshgrid, isscalar, ndarray, pi, roll
 from time import time
 from multiprocessing import Process, Lock
 
+from scipy.misc import imresize #scipy 0.12
+
 # pystp-specific:
 from preprocess.extfov_correction import extfov_correction
 from preprocess.flat_fielding import flat_fielding
@@ -100,12 +102,12 @@ def reconstruct(im, angles, offset, logtransform, param1, circle, scale, pad, me
 	"""
 		
 	# Copy images and ensure they are of type float32:
-	#im_f = copy(im.astype(float32))   
+	#im_f = copy(im.astype(float32))
 	im_f = im.astype(float32)
 
 	# Decimate projections if required:
 	#if decim_factor > 1:
-	#	im_f = im_f[::decim_factor,:]	
+	#	im_f = im_f[::decim_factor,:]
 	
 	# Upscale projections (if required):
 	if (abs(scale - 1.0) > finfo(float32).eps):		
@@ -113,44 +115,47 @@ def reconstruct(im, angles, offset, logtransform, param1, circle, scale, pad, me
 		im_f = imresize(im_f, (im_f.shape[0], int(round(scale * im_f.shape[1]))), interp='bicubic', mode='F')
 		offset = int(offset * scale)		
 			
-	# Apply transformation for changes in the center of rotation:
-	if (offset != 0):
-		if (offset >= 0):
-			im_f = im_f[:,:-offset]
+	# Apply transformation for changes in the center of rotation (only for Pelt's code):
+	if ( (method == 'MR-FBP_CUDA') or (method == 'FISTA-TV_CUDA') ):
+		offset = int(round(offset))
+		if (offset != 0):
+			if (offset >= 0):
+				im_f = im_f[:,:-offset]
 			
-			tmp = im_f[:,0] # Get first column
-			tmp = tile(tmp, (offset,1)) # Replicate the first column the right number of times
-			im_f = concatenate((tmp.T,im_f), axis=1) # Concatenate tmp before the image
+				tmp = im_f[:,0] # Get first column
+				tmp = tile(tmp, (offset,1)) # Replicate the first column the right number of times
+				im_f = concatenate((tmp.T,im_f), axis=1) # Concatenate tmp before the image
 						
-		else:
-			im_f = im_f[:,abs(offset):] 	
+			else:
+				im_f = im_f[:,abs(offset):]
 			
-			tmp = im_f[:,im_f.shape[1] - 1] # Get last column
-			tmp = tile(tmp, (abs(offset),1)) # Replicate the last column the right number of times
-			im_f = concatenate((im_f,tmp.T), axis=1) # Concatenate tmp after the image	
+				tmp = im_f[:,im_f.shape[1] - 1] # Get last column
+				tmp = tile(tmp, (abs(offset),1)) # Replicate the last column the right number of times
+				im_f = concatenate((im_f,tmp.T), axis=1) # Concatenate tmp after the image
 	
 	# Downscale projections (without pixel averaging):
 	#if downsc_factor > 1:
-	#	im_f = im_f[:,::downsc_factor]	
+	#	im_f = im_f[:,::downsc_factor]
 		
-	# Sinogram rolling (if required).  It doesn't make sense in limited angle tomography, so check if 180 or 360:
+	# Sinogram rolling (if required).  It doesn't make sense in limited angle
+	# tomography, so check if 180 or 360:
 	if ((rolling == True) and (roll_shift > 0)):
-		if ( (angles - pi) < finfo(float32).eps ):
+		if ((angles - pi) < finfo(float32).eps):
 			# Flip the last rows:
 			im_f[-roll_shift:,:] = im_f[-roll_shift:,::-1]
 			# Now roll the sinogram:
 			im_f = roll(im_f, roll_shift, axis=0)
-		elif ((angles - pi*2.0) < finfo(float32).eps):	
+		elif ((angles - pi * 2.0) < finfo(float32).eps):	
 			# Only roll the sinogram:
 			im_f = roll(im_f, roll_shift, axis=0)		
 			
 	# Scale image to [0,1] range (if required):
-	if (zerone_mode):
-		
-		#im_f = (im_f - dset_min) / (dset_max - dset_min)
+	if (zerone_mode):		
+		im_f = (im_f - dset_min) / (dset_max - dset_min)
 		
 		# Cheating the whole process:
-		im_f = (im_f - numpy.amin(im_f[:])) / (numpy.amax(im_f[:]) - numpy.amin(im_f[:]))
+		#im_f = (im_f - numpy.amin(im_f[:])) / (numpy.amax(im_f[:]) -
+		#numpy.amin(im_f[:]))
 	
 	# Apply log transform:
 	if (logtransform == True):						
@@ -162,24 +167,25 @@ def reconstruct(im, angles, offset, logtransform, param1, circle, scale, pad, me
 
 		dim_o = im_f.shape[1]		
 		n_pad = im_f.shape[1] + im_f.shape[1] / 2				
-		marg  = (n_pad - dim_o) / 2	
+		marg = (n_pad - dim_o) / 2	
 	
 		# Pad image:
-		im_f = padSmoothWidth(im_f, n_pad)				
+		#im_f = padSmoothWidth(im_f, n_pad)
+		im_f = padImage(im_f, im_f.shape[0], n_pad)			
 	
 	# Perform the actual reconstruction:
 	if (method.startswith('FBP')):
-		im_f = recon_astra_fbp(im_f, angles, method, param1)	
+		im_f = recon_astra_fbp(im_f, angles, method, param1, offset)	
 	elif (method == 'MR-FBP_CUDA'):
-		im_f = recon_mr_fbp(im_f, angles)
+		im_f = recon_mr_fbp(im_f, angles, offset)
 	elif (method == 'FISTA-TV_CUDA'):
 		lam, fgpiter, tviter = param1.split(":")    
 		lam = float32(lam) 
 		fgpiter = int(fgpiter) 
 		tviter = int(tviter)
-		im_f = recon_fista_tv(im_f, angles, lam, fgpiter, tviter)
+		im_f = recon_fista_tv(im_f, angles, lam, fgpiter, tviter, offset)
 	else:
-		im_f = recon_astra_iterative(im_f, angles, method, param1, zerone_mode)	
+		im_f = recon_astra_iterative(im_f, angles, method, param1, zerone_mode, offset)	
 
 		
 	# Crop:
@@ -241,7 +247,7 @@ def reconstruct_gridrec(im1, im2, angles, offset, logtransform, param1, circle, 
 
 	# Decimate projections if required:
 	#if decim_factor > 1:
-	#	im_f1 = im_f1[::decim_factor,:]	
+	#	im_f1 = im_f1[::decim_factor,:]
 	#	im_f2 = im_f2[::decim_factor,:]
 	
 	# Upscale projections (if required):
@@ -252,6 +258,7 @@ def reconstruct_gridrec(im1, im2, angles, offset, logtransform, param1, circle, 
 		offset = int(offset * scale)		
 			
 	# Apply transformation for changes in the center of rotation:
+	offset = int(round(offset))
 	if (offset != 0):
 		if (offset >= 0):
 			im_f1 = im_f1[:,:-offset]
@@ -271,7 +278,7 @@ def reconstruct_gridrec(im1, im2, angles, offset, logtransform, param1, circle, 
 			
 			tmp = im_f1[:,im_f1.shape[1] - 1] # Get last column
 			tmp = tile(tmp, (abs(offset),1)) # Replicate the last column the right number of times
-			im_f1 = concatenate((im_f1,tmp.T), axis=1) # Concatenate tmp after the image	
+			im_f1 = concatenate((im_f1,tmp.T), axis=1) # Concatenate tmp after the image
 
 			im_f2 = im_f2[:,abs(offset):] 	
 			
@@ -286,14 +293,14 @@ def reconstruct_gridrec(im1, im2, angles, offset, logtransform, param1, circle, 
 
 	# Sinogram rolling (if required).  It doesn't make sense in limited angle tomography, so check if 180 or 360:
 	if ((rolling == True) and (roll_shift > 0)):
-		if ( (angles - pi) < finfo(float32).eps ):
+		if ((angles - pi) < finfo(float32).eps):
 			# Flip the last rows:
 			im_f1[-roll_shift:,:] = im_f1[-roll_shift:,::-1]
 			im_f2[-roll_shift:,:] = im_f2[-roll_shift:,::-1]
 			# Now roll the sinogram:
 			im_f1 = roll(im_f1, roll_shift, axis=0)
 			im_f2 = roll(im_f2, roll_shift, axis=0)
-		elif ((angles - pi*2.0) < finfo(float32).eps):	
+		elif ((angles - pi * 2.0) < finfo(float32).eps):	
 			# Only roll the sinogram:
 			im_f1 = roll(im_f1, roll_shift, axis=0)		
 			im_f2 = roll(im_f2, roll_shift, axis=0)			
@@ -325,13 +332,16 @@ def reconstruct_gridrec(im1, im2, angles, offset, logtransform, param1, circle, 
 
 		dim_o = im_f1.shape[1]		
 		n_pad = im_f1.shape[1] + im_f1.shape[1] / 2					
-		marg  = (n_pad - dim_o) / 2	
+		marg = (n_pad - dim_o) / 2	
 
 		# Pad image:
 		im_f1 = padSmoothWidth(im_f1, n_pad)	
 		im_f2 = padSmoothWidth(im_f2, n_pad)		
+		
+		#im_f1 = padImage(im_f1, im_f1.shape[0], n_pad)
+		#im_f2 = padImage(im_f2, im_f2.shape[0], n_pad)
 	
-	# Perform the actual reconstruction:	
+	# Perform the actual reconstruction:
 	[im_f1, im_f2] = recon_gridrec(im_f1, im_f2, angles, param1) 
 	
 		
@@ -370,8 +380,8 @@ def write_log_gridrec(lock, fname1, fname2, logfilename, cputime, iotime):
 	try: 
 		# Print out execution time:
 		log = open(logfilename,"a")
-		log.write(linesep + "\t%s reconstructed (CPU: %0.3f sec - I/O: %0.3f sec)." % (basename(fname1), cputime/2, iotime/2))
-		log.write(linesep + "\t%s reconstructed (CPU: %0.3f sec - I/O: %0.3f sec)." % (basename(fname2), cputime/2, iotime/2))
+		log.write(linesep + "\t%s reconstructed (CPU: %0.3f sec - I/O: %0.3f sec)." % (basename(fname1), cputime / 2, iotime / 2))
+		log.write(linesep + "\t%s reconstructed (CPU: %0.3f sec - I/O: %0.3f sec)." % (basename(fname2), cputime / 2, iotime / 2))
 		log.close()	
 
 	finally:
@@ -396,9 +406,9 @@ def process_gridrec(lock, int_from, int_to, num_sinos, infile, outpath, preproce
 			dset = f_in['tomo']
 		else: 
 			dset = f_in['exchange/data']
-		im1 = tdf.read_sino(dset,i*downsc_factor).astype(float32)		
-		if ( (i + downsc_factor) <= (int_to + 1) ):
-			im2 = tdf.read_sino(dset,i*downsc_factor + downsc_factor).astype(float32)		
+		im1 = tdf.read_sino(dset,i * downsc_factor).astype(float32)		
+		if ((i + downsc_factor) <= (int_to + 1)):
+			im2 = tdf.read_sino(dset,i * downsc_factor + downsc_factor).astype(float32)		
 		else:
 			im2 = im1
 		f_in.close()
@@ -412,7 +422,7 @@ def process_gridrec(lock, int_from, int_to, num_sinos, infile, outpath, preproce
 		# Apply decimation and downscaling (if required):
 		im1 = im1[::decim_factor,::downsc_factor]
 		im2 = im2[::decim_factor,::downsc_factor]
-		#i = i / downsc_factor				
+		#i = i / downsc_factor
 			
 		# Perform the preprocessing of the sinograms (if required):
 		if (preprocessing_required):
@@ -421,28 +431,28 @@ def process_gridrec(lock, int_from, int_to, num_sinos, infile, outpath, preproce
 					# Dynamic flat fielding with downsampling = 2:
 					im1 = dynamic_flat_fielding(im1, i, EFF, filtEFF, 2, im_dark, norm_sx, norm_dx)
 				else:
-					im1 = flat_fielding (im1, i, corr_plan, flat_end, half_half, half_half_line / decim_factor, norm_sx, norm_dx).astype(float32)		
+					im1 = flat_fielding(im1, i, corr_plan, flat_end, half_half, half_half_line / decim_factor, norm_sx, norm_dx).astype(float32)		
 			if ext_fov:
-				im1 = extfov_correction (im1, ext_fov_rot_right, ext_fov_overlap / downsc_factor, ext_fov_normalize, ext_fov_average)
+				im1 = extfov_correction(im1, ext_fov_rot_right, ext_fov_overlap / downsc_factor, ext_fov_normalize, ext_fov_average)
 			if not skipflat:
-				im1 = ring_correction (im1, ringrem, flat_end, corr_plan['skip_flat_after'], half_half, 
+				im1 = ring_correction(im1, ringrem, flat_end, corr_plan['skip_flat_after'], half_half, 
 						   half_half_line / decim_factor, ext_fov)
 			else:
-				im1 = ring_correction (im1, ringrem, False, False, half_half, half_half_line / decim_factor, ext_fov)
+				im1 = ring_correction(im1, ringrem, False, False, half_half, half_half_line / decim_factor, ext_fov)
 
 			if not skipflat:
 				if dynamic_ff:
 					# Dynamic flat fielding with downsampling = 2:
 					im2 = dynamic_flat_fielding(im2, i + 1, EFF, filtEFF, 2, im_dark, norm_sx, norm_dx)
 				else:
-					im2 = flat_fielding (im2, i + 1, corr_plan, flat_end, half_half, half_half_line / decim_factor, norm_sx, norm_dx).astype(float32)	
+					im2 = flat_fielding(im2, i + 1, corr_plan, flat_end, half_half, half_half_line / decim_factor, norm_sx, norm_dx).astype(float32)	
 			if ext_fov:	
-				im2 = extfov_correction (im2, ext_fov_rot_right, ext_fov_overlap / downsc_factor, ext_fov_normalize, ext_fov_average)
+				im2 = extfov_correction(im2, ext_fov_rot_right, ext_fov_overlap / downsc_factor, ext_fov_normalize, ext_fov_average)
 			if not skipflat and not dynamic_ff:		
-				im2 = ring_correction (im2, ringrem, flat_end, corr_plan['skip_flat_after'], half_half, 
+				im2 = ring_correction(im2, ringrem, flat_end, corr_plan['skip_flat_after'], half_half, 
 						   half_half_line / decim_factor, ext_fov)
 			else:
-				im2 = ring_correction (im2, ringrem, False, False, half_half, half_half_line, ext_fov)
+				im2 = ring_correction(im2, ringrem, False, False, half_half, half_half_line, ext_fov)
 		
 
 		# Actual reconstruction:
@@ -469,7 +479,7 @@ def process_gridrec(lock, int_from, int_to, num_sinos, infile, outpath, preproce
 					rang = arange(-siz / 2,siz / 2)
 				x,y = meshgrid(rang,rang)
 				z = x ** 2 + y ** 2
-				a = (z < (siz / 2 - int(round(abs(offset)/downsc_factor)) ) ** 2)
+				a = (z < (siz / 2 - int(round(abs(offset) / downsc_factor))) ** 2)
 				
 				im1 = im1 * a			
 				im2 = im2 * a	
@@ -486,7 +496,7 @@ def process_gridrec(lock, int_from, int_to, num_sinos, infile, outpath, preproce
 		t3 = time()
 								
 		# Write log (atomic procedure - lock used):
-		write_log_gridrec(lock, fname1, fname2, logfilename, t2 - t1, (t3 - t2) + (t1 - t0) )		
+		write_log_gridrec(lock, fname1, fname2, logfilename, t2 - t1, (t3 - t2) + (t1 - t0))		
 
 
 def process(lock, int_from, int_to, num_sinos, infile, outpath, preprocessing_required, skipflat, corr_plan, norm_sx, norm_dx, 
@@ -501,7 +511,8 @@ def process(lock, int_from, int_to, num_sinos, infile, outpath, preprocessing_re
 	# Process the required subset of images:
 	for i in range(int_from, int_to + 1):                 
 		
-		# Perform reconstruction (on-the-fly preprocessing and phase retrieval, if required):
+		# Perform reconstruction (on-the-fly preprocessing and phase retrieval, if
+		# required):
 		#if (phaseretrieval_required):
 			
 		#	# Load into memory a bunch of sinograms:
@@ -511,11 +522,12 @@ def process(lock, int_from, int_to, num_sinos, infile, outpath, preprocessing_re
 		#	f_in = getHDF5(infile, 'r')
 		#	if "/tomo" in f_in:
 		#		dset = f_in['tomo']
-		#	else: 
+		#	else:
 		#		dset = f_in['exchange/data']
 
 		#	# Prepare the data structure according to the approximation window:
-		#	tmp_im = numpy.empty((tdf.get_nr_projs(dset),tdf.get_det_size(dset), approx_win), dtype=float32)
+		#	tmp_im = numpy.empty((tdf.get_nr_projs(dset),tdf.get_det_size(dset),
+		#	approx_win), dtype=float32)
 
 		#	# Load the temporary data structure reading the input TDF file:
 		#	# (It can be parallelized Open-MP style)
@@ -526,12 +538,12 @@ def process(lock, int_from, int_to, num_sinos, infile, outpath, preprocessing_re
 		#		if (j >= num_sinos):
 		#			j = num_sinos - 1
 		#		a = tdf.read_sino(dset,j).astype(float32)
-		#		tmp_im[:,:,ct] = a			
+		#		tmp_im[:,:,ct] = a
 		#		ct = ct + 1
 			
-		#	# Close the TDF file:	
+		#	# Close the TDF file:
 		#	f_in.close()
-		#	t1 = time() 					
+		#	t1 = time()
 
 		#	# Perform the processing:
 		#	if (preprocessing_required):
@@ -541,18 +553,23 @@ def process(lock, int_from, int_to, num_sinos, infile, outpath, preprocessing_re
 		#			if (j < 0):
 		#				j = 0
 		#			if (j >= num_sinos):
-		#				j = num_sinos - 1					
+		#				j = num_sinos - 1
 
-		#			tmp_im[:,:,ct] = flat_fielding (tmp_im[:,:,ct], j, corr_plan, flat_end, half_half, half_half_line, norm_sx, norm_dx).astype(float32)			
-		#			tmp_im[:,:,ct] = extfov_correction (tmp_im[:,:,ct], ext_fov, ext_fov_rot_right, ext_fov_overlap).astype(float32)			
-		#			tmp_im[:,:,ct] = ring_correction (tmp_im[:,:,ct], ringrem, flat_end, corr_plan['skip_flat_after'], half_half, half_half_line, ext_fov).astype(float32)
+		#			tmp_im[:,:,ct] = flat_fielding (tmp_im[:,:,ct], j, corr_plan, flat_end,
+		#			half_half, half_half_line, norm_sx, norm_dx).astype(float32)
+		#			tmp_im[:,:,ct] = extfov_correction (tmp_im[:,:,ct], ext_fov,
+		#			ext_fov_rot_right, ext_fov_overlap).astype(float32)
+		#			tmp_im[:,:,ct] = ring_correction (tmp_im[:,:,ct], ringrem, flat_end,
+		#			corr_plan['skip_flat_after'], half_half, half_half_line,
+		#			ext_fov).astype(float32)
 		#			ct = ct + 1
 
 		#	# Perform phase retrieval:
 		#	# (It can be parallelized Open-MP style)
 		#	for ct in range(0, tmp_im.shape[0]):
 
-		#		tmp_im[ct,:,:] = phase_retrieval(tmp_im[ct,:,:].T, phrt_plan).astype(float32).T
+		#		tmp_im[ct,:,:] = phase_retrieval(tmp_im[ct,:,:].T,
+		#		phrt_plan).astype(float32).T
 		#		ct = ct + 1
 			
 		#	# Extract the central processed sinogram:
@@ -567,7 +584,7 @@ def process(lock, int_from, int_to, num_sinos, infile, outpath, preprocessing_re
 			dset = f_in['tomo']
 		else: 
 			dset = f_in['exchange/data']
-		im = tdf.read_sino(dset,i*downsc_factor).astype(float32)		
+		im = tdf.read_sino(dset,i * downsc_factor).astype(float32)		
 		f_in.close()
 		t1 = time() 	
 
@@ -576,7 +593,7 @@ def process(lock, int_from, int_to, num_sinos, infile, outpath, preprocessing_re
 		
 		# Apply decimation and downscaling (if required):
 		im = im[::decim_factor,::downsc_factor]
-		#i = i / downsc_factor				
+		#i = i / downsc_factor
 			
 		# Perform the preprocessing of the sinogram (if required):
 		if (preprocessing_required):
@@ -585,13 +602,13 @@ def process(lock, int_from, int_to, num_sinos, infile, outpath, preprocessing_re
 					# Dynamic flat fielding with downsampling = 2:
 					im = dynamic_flat_fielding(im, i, EFF, filtEFF, 2, im_dark, norm_sx, norm_dx).astype(float32)
 				else:
-					im = flat_fielding (im, i, corr_plan, flat_end, half_half, half_half_line / decim_factor, norm_sx, norm_dx).astype(float32)	
+					im = flat_fielding(im, i, corr_plan, flat_end, half_half, half_half_line / decim_factor, norm_sx, norm_dx).astype(float32)	
 			if ext_fov:	
-				im = extfov_correction (im, ext_fov_rot_right, ext_fov_overlap / downsc_factor, ext_fov_normalize, ext_fov_average)
+				im = extfov_correction(im, ext_fov_rot_right, ext_fov_overlap / downsc_factor, ext_fov_normalize, ext_fov_average)
 			if not skipflat and not dynamic_ff:
-				im = ring_correction (im, ringrem, flat_end, corr_plan['skip_flat_after'], half_half, half_half_line / decim_factor, ext_fov)
+				im = ring_correction(im, ringrem, flat_end, corr_plan['skip_flat_after'], half_half, half_half_line / decim_factor, ext_fov)
 			else:
-				im = ring_correction (im, ringrem, False, False, half_half, half_half_line, ext_fov)
+				im = ring_correction(im, ringrem, False, False, half_half, half_half_line, ext_fov)
 		
 
 		# Actual reconstruction:
@@ -612,7 +629,7 @@ def process(lock, int_from, int_to, num_sinos, infile, outpath, preprocessing_re
 					rang = arange(-siz / 2,siz / 2)
 				x,y = meshgrid(rang,rang)
 				z = x ** 2 + y ** 2
-				a = (z < (siz / 2 - abs(offset) ) ** 2)
+				a = (z < (siz / 2 - abs(offset)) ** 2)
 				im = im * a			
 
 		# Write down reconstructed slice:
@@ -622,7 +639,7 @@ def process(lock, int_from, int_to, num_sinos, infile, outpath, preprocessing_re
 		t3 = time()
 								
 		# Write log (atomic procedure - lock used):
-		write_log(lock, fname, logfilename, t2 - t1, (t3 - t2) + (t1 - t0) )
+		write_log(lock, fname, logfilename, t2 - t1, (t3 - t2) + (t1 - t0))
 
 
 def main(argv):          
@@ -662,7 +679,7 @@ def main(argv):
 	angles = float(argv[4])
 	offset = float(argv[5])
 	param1 = argv[6]	
-	scale  = int(float(argv[7]))
+	scale = int(float(argv[7]))
 	
 	overpad = True if argv[8] == "True" else False
 	logtrsf = True if argv[9] == "True" else False
@@ -724,7 +741,7 @@ def main(argv):
 	rolling = True if argv[36] == "True" else False
 	roll_shift = int(int(argv[37]) / decim_factor)
 
-	dynamic_ff 	= True if argv[38] == "True" else False
+	dynamic_ff = True if argv[38] == "True" else False
 	
 	nr_threads = int(argv[39])	
 	logfilename = argv[40]	
@@ -798,9 +815,10 @@ def main(argv):
 	filtEFF = -1
 	if (preprocessing_required):
 		if not dynamic_ff:
-			# Load flat fielding plan either from cache (if required) or from TDF file and cache it for faster re-use:			
+			# Load flat fielding plan either from cache (if required) or from TDF file
+			# and cache it for faster re-use:
 			corrplan = extract_flatdark(f_in, flat_end, logfilename)
-			if (isscalar(corrplan['im_flat']) and isscalar(corrplan['im_flat_after']) ):
+			if (isscalar(corrplan['im_flat']) and isscalar(corrplan['im_flat_after'])):
 				skipflat = True
 			
 			# Dowscale flat and dark images if necessary:
@@ -823,7 +841,7 @@ def main(argv):
 					else:										
 						skipdark = True
 				else:
-					skipflat = True # Nothing to do in this case			
+					skipflat = True # Nothing to do in this case
 			else: 
 				if "/exchange/data_white" in f_in:
 					flat_dset = f_in['/exchange/data_white']
@@ -834,7 +852,7 @@ def main(argv):
 				else:
 					skipflat = True # Nothing to do in this case
 	
-			# Prepare plan for dynamic flat fielding with 16 repetitions:		
+			# Prepare plan for dynamic flat fielding with 16 repetitions:
 			if not skipflat:
 				EFF, filtEFF = dff_prepare_plan(flat_dset, 16, im_dark)
 
@@ -852,13 +870,14 @@ def main(argv):
 	log.write(linesep + "\tPerforming reconstruction...")			
 	log.close()	
 
-	# Run several threads for independent computation without waiting for threads completion:
+	# Run several threads for independent computation without waiting for threads
+	# completion:
 	for num in range(nr_threads):
-		start = ( (int_to - int_from + 1) / nr_threads)*num + int_from
+		start = ((int_to - int_from + 1) / nr_threads) * num + int_from
 		if (num == nr_threads - 1):
 			end = int_to
 		else:
-			end = ( (int_to - int_from + 1) / nr_threads)*(num + 1) + int_from - 1
+			end = ((int_to - int_from + 1) / nr_threads) * (num + 1) + int_from - 1
 		if (reconmethod == 'GRIDREC'):
 			Process(target=process_gridrec, args=(lock, start, end, num_sinos, infile, outpath, preprocessing_required, skipflat, 
 						corrplan, norm_sx, norm_dx, flat_end, half_half, half_half_line, ext_fov, ext_fov_rot_right, 
@@ -866,7 +885,7 @@ def main(argv):
 						offset, logtrsf, param1, circle, scale, overpad, rolling, roll_shift,
 						zerone_mode, dset_min, dset_max, decim_factor, downsc_factor, corr_offset, 
 						postprocess_required, polarfilt_opt, convert_opt, crop_opt, dynamic_ff, EFF, filtEFF, im_dark, outprefix, 
-						logfilename )).start()
+						logfilename)).start()
 		else:
 			Process(target=process, args=(lock, start, end, num_sinos, infile, outpath, preprocessing_required, skipflat, 
 						corrplan, norm_sx, norm_dx, flat_end, half_half, half_half_line, ext_fov, ext_fov_rot_right, 
@@ -874,7 +893,7 @@ def main(argv):
 						offset, logtrsf, param1, circle, scale, overpad, reconmethod, rolling, roll_shift,
 						zerone_mode, dset_min, dset_max, decim_factor, downsc_factor, corr_offset, 
 						postprocess_required, polarfilt_opt, convert_opt, crop_opt, dynamic_ff, EFF, filtEFF, im_dark, outprefix, 
-						logfilename )).start()
+						logfilename)).start()
 
 	#start = int_from
 	#end = int_to

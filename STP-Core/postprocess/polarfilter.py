@@ -22,41 +22,67 @@
 
 #
 # Author: Francesco Brun
-# Last modified: July, 8th 2016
+# Last modified: April, 6th 2017
 #
 
-from numpy import float32, linspace
+from numpy import float32, amin, amax, sqrt, max, pad
 
-import astra
-import mrfbp
-import mrfbp.ASTRAProjector
+import imp, inspect, os
+import polarfilters
+import cv2
 
-def recon_mr_fbp(im, angles, cor_shift):
-	"""Reconstruct a sinogram with the Minimum Residual FBP algorithm (Pelt, 2013).
+def polarfilter(im, polarfilt_opt):	
+	"""Post-process a reconstructed image with a filter in polar coordinates.
 
 	Parameters
 	----------
 	im : array_like
-		Sinogram image data as numpy array.
+		Image data as numpy array. 
 
-	angles : double
-		Value in radians representing the number of angles of the input sinogram.
-	
+	filt_opt : string
+		String containing filter method and the related parameters.
+
 	"""
-	# Create ASTRA geometries:
-	vol_geom = astra.create_vol_geom(im.shape[1] , im.shape[1])
-	proj_geom = astra.create_proj_geom('parallel', 1.0, im.shape[1], linspace(0,angles,im.shape[0],False))
+	# Get method and args:
+	method, args = polarfilt_opt.split(":", 1)
 
-	# Projection geometry with shifted center of rotation (doesn't work apparently):
-	#proj_geom = astra.geom_postalignment(proj_geom, cor_shift);
+	# The "none" filter means no filtering:
+	if (method != "none"):
 
-	# Create the ASTRA projector:
-	p = mrfbp.ASTRAProjector.ASTRAProjector2D(proj_geom,vol_geom)
-	
-	# Create the MR-FBP Reconstructor:
-	rec = mrfbp.Reconstructor(p)
+		# Dinamically load module:
+		path = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
+		str = os.path.join(path, "polarfilters",  method + '.py')
+		m = imp.load_source(method, str)
+			
+		# Convert to 8-bit or 16-bit:
+		filt_method, filt_args = polarfilt_opt.split(":", 1)			
+				
+		# Get original size:
+		origsize = im.shape
 
-	# Reconstruct the image using MR-FBP:
-	im_rec = rec.reconstruct(im)
-	
-	return im_rec.astype(float32)
+		# Up-scaling:
+		im = cv2.resize(im, None, 2, 2, cv2.INTER_CUBIC)
+		rows, cols = im.shape
+		cen_x = im.shape[1] / 2
+		cen_y = im.shape[0] / 2
+
+		# To polar:
+		im = cv2.linearPolar(im, (cen_x, cen_y), amax([rows,cols]), cv2.INTER_CUBIC)
+
+		# Padding:
+		cropsize = im.shape
+		im = pad(im, ((origsize[0] / 4, origsize[0] / 4), (origsize[1] / 2, 0)), 'symmetric')  
+		
+		# Call the filter dynamically:
+		im = getattr(m, method)(im, args)
+
+		# Crop:
+		im = im[origsize[0] / 4:origsize[0] / 4 + cropsize[0],origsize[1] / 2:origsize[1] / 2 + cropsize[1]]
+
+		# Back to cartesian:
+		im = cv2.linearPolar(im, (cen_x, cen_y), amax([rows,cols]), cv2.INTER_CUBIC + cv2.WARP_INVERSE_MAP)
+
+		# Down-scaling to original size:
+		im = cv2.resize(im, (origsize[0], origsize[1]), interpolation = cv2.INTER_CUBIC)
+
+	return im 

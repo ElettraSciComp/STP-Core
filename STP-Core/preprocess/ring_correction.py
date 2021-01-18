@@ -1,4 +1,4 @@
-﻿###########################################################################
+###########################################################################
 # (C) 2016 Elettra - Sincrotrone Trieste S.C.p.A.. All rights reserved.   #
 #                                                                         #
 #                                                                         #
@@ -60,7 +60,8 @@ def ring_correction (im, ringrem, flat_end, skip_flat_after, half_half, half_hal
 
 		# Dinamically load module:
 		path = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
-		m = imp.load_source(method, path + '\\ringremoval\\'+ method + '.py')
+		str = os.path.join(path, "ringremoval",  method + '.py')
+		m = imp.load_source(method, str)
 			
 		if ( (method == "rivers") or (method == "boinhaibel") ):
 

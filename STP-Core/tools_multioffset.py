@@ -58,6 +58,8 @@ from tifffile import imread, imsave
 from h5py import File as getHDF5
 import stpio.tdf as tdf
 
+from scipy.misc import imresize #scipy 0.12
+
 
 def write_log(lock, fname, logfilename):    	      
 	"""To do...
@@ -161,7 +163,8 @@ def reconstruct(im, angles, angles_projfrom, angles_projto, offset, logtransform
 			marg  = (n_pad - dim_o) / 2	
 	
 			# Pad image:
-			im_f = padSmoothWidth(im_f, n_pad)		
+			#im_f = padSmoothWidth(im_f, n_pad)	            
+			im_f = padImage(im_f, im_f.shape[0], n_pad)		
 	
 		# Perform the actual reconstruction:
 		if (method.startswith('FBP')):

@@ -34,7 +34,7 @@ from glob import glob
 from sys import argv, exit
 from h5py import File as getHDF5
 from numpy import float32
-from tifffile import imread, imsave
+
 
 import stpio.tdf as tdf
 

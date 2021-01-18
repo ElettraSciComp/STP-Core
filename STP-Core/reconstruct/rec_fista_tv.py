@@ -31,7 +31,7 @@ import astra
 import tvtomo
 
 
-def recon_fista_tv(im, angles, lam, fista_iter, iter):
+def recon_fista_tv(im, angles, lam, fista_iter, iter, cor_shift):
 	"""Reconstruct the input sinogram by using the FISTA-TV algorithm
 
     Parameters
@@ -56,6 +56,9 @@ def recon_fista_tv(im, angles, lam, fista_iter, iter):
 	# Create ASTRA geometries:
 	vol_geom = astra.create_vol_geom(im.shape[1] , im.shape[1])
 	proj_geom = astra.create_proj_geom('parallel', 1.0, im.shape[1], linspace(0, angles, im.shape[0], False))
+
+	# Projection geometry with shifted center of rotation (doesn't work apparently):
+	#proj_geom = astra.geom_postalignment(proj_geom, cor_shift);
 
 	# Create the ASTRA projector:
 	p = tvtomo.ProjectorASTRA2D(proj_geom,vol_geom)	

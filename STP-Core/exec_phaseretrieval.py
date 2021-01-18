@@ -34,6 +34,7 @@ from multiprocessing import Process, Lock
 from pyfftw.interfaces.cache import enable as pyfftw_cache_enable, disable as pyfftw_cache_disable
 from pyfftw.interfaces.cache import set_keepalive_time as pyfftw_set_keepalive_time
 
+from phaseretrieval.tiehom2020 import tiehom2020, tiehom_plan2020
 from phaseretrieval.tiehom import tiehom, tiehom_plan
 from phaseretrieval.phrt   import phrt, phrt_plan
 
@@ -85,7 +86,9 @@ def _process(lock, int_from, int_to, infile, outfile, outshape, outtype, method,
 
 		# Perform phase retrieval (first time also PyFFTW prepares a plan):		
 		if (method == 0):
-			im = tiehom(im, plan).astype(float32)			
+			im = tiehom(im, plan).astype(float32)		
+		elif (method == 1):
+			im = tiehom2020(im, plan).astype(float32)		
 		else:
 			im = phrt(im, plan, method).astype(float32)			
 		t2 = time() 	
@@ -136,10 +139,15 @@ def main(argv):
 		log.write(linesep + "\tMethod: TIE-Hom (Paganin et al., 2002)")		
 		log.write(linesep + "\t--------------")	
 		log.write(linesep + "\tDelta/Beta: %0.1f" % ((param2/param1))	)
-	#else:
-	#	log.write(linesep + "\tMethod: Projected CTF (Moosmann et al., 2011)")		
-	#	log.write(linesep + "\t--------------")	
-	#	log.write(linesep + "\tDelta/Beta: %0.1f" % ((param2/param1))	)
+	elif (method == 1):
+		log.write(linesep + "\tMethod: Generalized TIE-Hom (Paganin et al., 2020)")		
+		log.write(linesep + "\t--------------")	
+		log.write(linesep + "\tDelta/Beta: %0.1f" % ((param2/param1))	)
+	else:
+		log.write(linesep + "\tMethod: Projected CTF (Moosmann et al., 2011)")		
+		log.write(linesep + "\t--------------")	
+		log.write(linesep + "\tRegularization: %0.3f" % (param2)	)
+		log.write(linesep + "\tThreshold: %0.3f" % (param1)	)
 	log.write(linesep + "\tEnergy: %0.1f keV" % (energy))
 	log.write(linesep + "\tDistance: %0.1f mm" % (distance))
 	log.write(linesep + "\tPixel size: %0.3f micron" % (pixsize*1000))
@@ -198,8 +206,11 @@ def main(argv):
 	f_out.close()
 				
 	if (method == 0):
-		# Paganin's:
+		# Paganin 2020:
 		plan = tiehom_plan (im, param1, param2, energy, distance, pixsize, pad)
+	elif (method == 1):
+		# Paganin 2020:
+		plan = tiehom_plan2020 (im, param1, param2, energy, distance, pixsize, pad)
 	else:
 		plan = phrt_plan (im, energy, distance, pixsize, param2, param1, method, pad)
 

@@ -5,7 +5,7 @@
     <SchemaVersion>2.0</SchemaVersion>
     <ProjectGuid>397494a0-035b-4ad0-996a-2799fb86dfcf</ProjectGuid>
     <ProjectHome>.</ProjectHome>
-    <StartupFile>tools_multioffset.py</StartupFile>
+    <StartupFile>preview_reconstruct.py</StartupFile>
     <SearchPath>
     </SearchPath>
     <WorkingDirectory>.</WorkingDirectory>
@@ -16,8 +16,8 @@
     <InterpreterArguments>
     </InterpreterArguments>
     <EnableNativeCodeDebugging>False</EnableNativeCodeDebugging>
-    <InterpreterPath>C:\Users\Franz\Documents\Visual Studio 2012\Projects\STP-Gui\STP-Gui\bin\x64\Release\python\python-2.7.10.amd64\python.exe</InterpreterPath>
-    <CommandLineArguments>150 "C:\Temp\Example1.tdf" "C:\Temp\buttami" 3.14159265358979 0 shepp-logan 1 False False False True False False 0 False False 0 False False 0 0 False "rivers:3;0" False 0 FBP_CUDA 1 1 False linear8:-0.01;0.01 0:0:0:0 False 5 0.1 2.5 22 150 2.2 True 32 0 1799 True "C:\Temp\20170727142342572" 3 -40 40 "slice" "C:\Temp\20170727142342572\_multioffset_log_00.txt"</CommandLineArguments>
+    <InterpreterPath>D:\Documents\Visual Studio 2012\Projects\STP-Gui\STP-Gui\bin\x64\Debug\python\python-2.7.10.amd64\python.exe</InterpreterPath>
+    <CommandLineArguments>150 "C:\Temp\Shared_VM\Example1.tdf" "C:\Temp\20210118140712748\20210118142532721" 3.14159265358979 -7.4 1E-05:20:20 1 False True False True False False 0 False False 0 False False 0 0 False "rivers:3;0" False 0 FISTA-TV_CUDA 1 1 False homomorphic:0.8;0.2 linear8:-0.01;0.01 0:0:0:0 False 0 1E-10 1E-07 22 150 2.2 True 32 0 1799 True 0 True False 1 "C:\Temp\20210118140712748" "C:\Temp\20210118140712748\_prev_rec_log_00.txt"</CommandLineArguments>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
     <DebugSymbols>true</DebugSymbols>
@@ -53,6 +53,7 @@
     <Compile Include="exec_reconstruct.py" />
     <Compile Include="exec_tdf2tiff.py" />
     <Compile Include="exec_tiff2tdf.py" />
+    <Compile Include="phaseretrieval\tiehom2020.py" />
     <Compile Include="postprocess\polarfilter.py" />
     <Compile Include="postprocess\polarfilters\homomorphic.py">
       <SubType>Code</SubType>

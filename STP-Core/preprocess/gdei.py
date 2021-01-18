@@ -31,13 +31,13 @@ def gdei(i1, i2, i3, r1, r2, r3, d1, d2, d3, dd1, dd2, dd3):
 	Parameters
 	----------
 	i1 : array_like
-		Image data (sinogram) as numpy array for the "top" image (top of the rocking curve)
+		Image data (sinogram) as numpy array for the first image of the rocking curve
 
     i2 : array_like
-		Image data (sinogram) as numpy array for the "left" image (left side of the rocking curve)
+		Image data (sinogram) as numpy array for the second image of the rocking curve
 
     i3 : array_like
-		Image data (sinogram) as numpy array for the "right" image (right side of the rocking curve)
+		Image data (sinogram) as numpy array for the third image of the rocking curve
 	
 	r1, r2, r3 : scalar float
         Coefficients
@@ -52,7 +52,7 @@ def gdei(i1, i2, i3, r1, r2, r3, d1, d2, d3, dd1, dd2, dd3):
 	
 
 	app = (i1 * (d2 * dd3 - dd2 * d3) - i2 * (d1 * dd3 - dd1 * d3) + i3 * (d1 * dd2 - dd1 * d2)) /  \
-		 (r1 * (d2 * dd3 - dd2 * d3) + r2 * (d1 * dd3 - dd1 * d3) + r3 * (d1 * dd2 - dd1 * d2))
+		 (r1 * (d2 * dd3 - dd2 * d3) - r2 * (d1 * dd3 - dd1 * d3) + r3 * (d1 * dd2 - dd1 * d2))
 
 
 	ref = - (i1 * (r2 * dd3 - dd2 * r3) - i2 * (r1 * dd3 - dd1 * r3) + i3 * (r1 * dd2 - dd1 * r2)) / \

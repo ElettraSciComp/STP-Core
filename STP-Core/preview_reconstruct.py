@@ -34,6 +34,8 @@ from numpy import empty, reshape, log as nplog, arange, squeeze, fromfile, ndarr
 from time import time
 from multiprocessing import Process, Array
 
+from scipy.misc import imresize #scipy 0.12
+
 # pystp-specific:
 from preprocess.extfov_correction import extfov_correction
 from preprocess.flat_fielding import flat_fielding
@@ -41,6 +43,7 @@ from preprocess.dynamic_flatfielding import dff_prepare_plan, dynamic_flat_field
 from preprocess.ring_correction import ring_correction
 from preprocess.extract_flatdark import extract_flatdark, _medianize
 
+from phaseretrieval.tiehom2020 import tiehom2020, tiehom_plan2020
 from phaseretrieval.tiehom import tiehom, tiehom_plan
 from phaseretrieval.phrt   import phrt, phrt_plan
 
@@ -85,8 +88,6 @@ def reconstruct(im, angles, offset, logtransform, recpar, circle, scale, pad, me
 		circle (default=False).	
 	
 	"""
-	offset = int(round(offset))
-
 	# Upscale projections (if required):
 	if (abs(scale - 1.0) > finfo(float32).eps):		
 		siz_orig1 = im.shape[1]		
@@ -94,20 +95,22 @@ def reconstruct(im, angles, offset, logtransform, recpar, circle, scale, pad, me
 		offset = int(offset * scale)		
 			
 	# Apply transformation for changes in the center of rotation:
-	if (offset != 0):
-		if (offset >= 0):
-			im = im[:,:-offset]
+	if ( (method == 'GRIDREC') or (method == 'MR-FBP_CUDA') or (method == 'FISTA-TV_CUDA') ):
+		offset = int(round(offset))
+		if (offset != 0):
+			if (offset >= 0):
+				im = im[:,:-offset]
 			
-			tmp = im[:,0] # Get first column
-			tmp = tile(tmp, (offset,1)) # Replicate the first column the right number of times
-			im = concatenate((tmp.T,im), axis=1) # Concatenate tmp before the image
+				tmp = im[:,0] # Get first column
+				tmp = tile(tmp, (offset,1)) # Replicate the first column the right number of times
+				im = concatenate((tmp.T,im), axis=1) # Concatenate tmp before the image
 						
-		else:
-			im = im[:,abs(offset):] 	
+			else:
+				im = im[:,abs(offset):] 	
 			
-			tmp = im[:,im.shape[1] - 1] # Get last column
-			tmp = tile(tmp, (abs(offset),1)) # Replicate the last column the right number of times
-			im = concatenate((im,tmp.T), axis=1) # Concatenate tmp after the image
+				tmp = im[:,im.shape[1] - 1] # Get last column
+				tmp = tile(tmp, (abs(offset),1)) # Replicate the last column the right number of times
+				im = concatenate((im,tmp.T), axis=1) # Concatenate tmp after the image
 
 	# Sinogram rolling (if required).  It doesn't make sense in limited angle tomography, so check if 180 or 360:
 	if ((rolling == True) and (roll_shift > 0)):
@@ -123,10 +126,10 @@ def reconstruct(im, angles, offset, logtransform, recpar, circle, scale, pad, me
 	# Scale image to [0,1] range (if required):
 	if (zerone_mode):
 		
-		#im_f = (im_f - dset_min) / (dset_max - dset_min)
+		im = (im - dset_min) / (dset_max - dset_min)
 		
 		# Cheating the whole process:
-		im = (im - numpy.amin(im[:])) / (numpy.amax(im[:]) - numpy.amin(im[:]))
+		#im = (im - numpy.amin(im[:])) / (numpy.amax(im[:]) - numpy.amin(im[:]))
 			
 	# Apply log transform:
 	im[im <= finfo(float32).eps] = finfo(float32).eps
@@ -141,19 +144,22 @@ def reconstruct(im, angles, offset, logtransform, recpar, circle, scale, pad, me
 		marg = (n_pad - dim_o) / 2	
 	
 		# Pad image:
-		im = padSmoothWidth(im, n_pad)		
+		if (method == 'GRIDREC'):
+			im = padSmoothWidth(im, n_pad)	
+		else:
+			im = padImage(im, im.shape[0], n_pad)		
 	
 	# Perform the actual reconstruction:
 	if (method.startswith('FBP')):
-		im = recon_astra_fbp(im, angles, method, recpar)	
+		im = recon_astra_fbp(im, angles, method, recpar, offset)	
 	elif (method == 'MR-FBP_CUDA'):
-		im = recon_mr_fbp(im, angles)
+		im = recon_mr_fbp(im, angles, offset)
 	elif (method == 'FISTA-TV_CUDA'):
 		lam, fgpiter, tviter = recpar.split(":")    
 		lam = float32(lam) 
 		fgpiter = int(fgpiter) 
 		tviter = int(tviter)
-		im = recon_fista_tv(im, angles, lam, fgpiter, tviter)
+		im = recon_fista_tv(im, angles, lam, fgpiter, tviter, offset)
 	#elif (method == 'SIRT-FBP_CUDA'):
 	#	im = recon_sirt_fbp(im, angles, int(recpar), tmppath )
 	#	# Clean SIRT-FBP cache:
@@ -161,7 +167,7 @@ def reconstruct(im, angles, offset, logtransform, recpar, circle, scale, pad, me
 	elif (method == 'GRIDREC'):
 		[im, im] = recon_gridrec(im, im, angles, recpar)	
 	else:
-		im = recon_astra_iterative(im, angles, method, recpar, zerone_mode)	
+		im = recon_astra_iterative(im, angles, method, recpar, zerone_mode, offset)	
 
 		
 	# Crop:
@@ -311,8 +317,11 @@ def process(sino_idx, num_sinos, infile, outfile, preprocessing_required, corr_p
 
 		# Prepare the plan:
 		if (phrtmethod == 0):
-			# Paganin's:
+			# Paganin 2002:
 			phrtplan = tiehom_plan(tmp_im[:,0,:], phrt_param1, phrt_param2, energy, distance, pixsize * downsc_factor, phrtpad)
+		elif (phrtmethod == 1):
+			# Paganin 2020:
+			phrtplan = tiehom_plan2020(tmp_im[:,0,:], phrt_param1, phrt_param2, energy, distance, pixsize * downsc_factor, phrtpad)
 		else:
 			phrtplan = phrt_plan(tmp_im[:,0,:], energy, distance, pixsize * downsc_factor, phrt_param2, phrt_param1, phrtmethod, phrtpad)
 			#phrtplan = prepare_plan (tmp_im[:,0,:], beta, delta, energy, distance,
@@ -322,7 +331,9 @@ def process(sino_idx, num_sinos, infile, outfile, preprocessing_required, corr_p
 		for ct in range(0, tmp_im.shape[1]):
 			#tmp_im[:,ct,:] = phase_retrieval(tmp_im[:,ct,:], phrtplan).astype(float32)
 			if (phrtmethod == 0):
-				tmp_im[:,ct,:] = tiehom(tmp_im[:,ct,:], phrtplan).astype(float32)			
+				tmp_im[:,ct,:] = tiehom(tmp_im[:,ct,:], phrtplan).astype(float32)		
+			elif (phrtmethod == 1):
+				tmp_im[:,ct,:] = tiehom2020(tmp_im[:,ct,:], phrtplan).astype(float32)		
 			else:
 				tmp_im[:,ct,:] = phrt(tmp_im[:,ct,:], phrtplan, phrtmethod).astype(float32)					
 		
@@ -618,13 +629,6 @@ def main(argv):
 				roll_shift, zerone_mode, dset_min, dset_max, decim_factor, downsc_factor, corr_offset, 
 				postprocess_required, polarfilt_opt, convert_opt, crop_opt, dynamic_ff, EFF, filtEFF, 
                 im_dark, nr_threads, logfilename, tmppath)		
-
-	# Sample:
-	# 311 C:\Temp\BrunGeorgos.tdf C:\Temp\BrunGeorgos.raw 3.1416 -31.0 shepp-logan
-	# 1.0 False False True True True True 5 False False 100 0 0 False rivers:11;0
-	# False 0.0 FBP_CUDA 1 1 False - - True 5 1.0 1000.0 22 150 2.2 True 16 0 1799
-	# True True 2 C:\Temp\StupidFolder C:\Temp\log_00.txt
-
 
 if __name__ == "__main__":
 	main(argv[1:])

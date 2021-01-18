@@ -29,7 +29,7 @@ from numpy import float32, linspace
 
 import astra
 
-def recon_astra_fbp(im, angles, method, filter_type):
+def recon_astra_fbp(im, angles, method, filter_type, cor_shift):
 	"""Reconstruct the input sinogram by using the FBP implemented in ASTRA toolbox.
 
     Parameters
@@ -52,6 +52,9 @@ def recon_astra_fbp(im, angles, method, filter_type):
 	
 	vol_geom = astra.create_vol_geom(im.shape[1], im.shape[1])
 	proj_geom = astra.create_proj_geom('parallel', 1.0, im.shape[1], linspace(0, angles, im.shape[0], False))
+
+	# Projection geometry with shifted center of rotation:
+	proj_geom = astra.geom_postalignment(proj_geom, cor_shift);
 	
 	if not (method.endswith("CUDA")):
 		proj_id = astra.create_projector('strip', proj_geom, vol_geom) # Only for CPU-based algorithms
@@ -92,7 +95,7 @@ def recon_astra_fbp(im, angles, method, filter_type):
 	
 	return rec
 
-def recon_astra_iterative(im, angles, method, iterations, zerone_mode):
+def recon_astra_iterative(im, angles, method, iterations, zerone_mode, cor_shift):
 	"""Reconstruct the input sinogram by using one of the iterative algorithms implemented in ASTRA toolbox.
 
     Parameters
@@ -120,6 +123,9 @@ def recon_astra_iterative(im, angles, method, iterations, zerone_mode):
 		
 	vol_geom = astra.create_vol_geom(im.shape[1] , im.shape[1])
 	proj_geom = astra.create_proj_geom('parallel', 1.0, im.shape[1], linspace(0,angles,im.shape[0],False))
+
+	# Projection geometry with shifted center of rotation:
+	proj_geom = astra.geom_postalignment(proj_geom, cor_shift);
 	
 	if not (method.endswith("CUDA")):
 		proj_id = astra.create_projector('strip', proj_geom, vol_geom) # Only for CPU-based algorithms

@@ -1,0 +1,459 @@
+﻿###########################################################################
+# (C) 2016 Elettra - Sincrotrone Trieste S.C.p.A.. All rights reserved.   #
+#                                                                         #
+#                                                                         #
+# This file is part of STP-Core, the Python core of SYRMEP Tomo Project,  #
+# a software tool for the reconstruction of experimental CT datasets.     #
+#                                                                         #
+# STP-Core is free software: you can redistribute it and/or modify it     #
+# under the terms of the GNU General Public License as published by the   #
+# Free Software Foundation, either version 3 of the License, or (at your  #
+# option) any later version.                                              #
+#                                                                         #
+# STP-Core is distributed in the hope that it will be useful, but WITHOUT #
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or   #
+# FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License    #
+# for more details.                                                       #
+#                                                                         #
+# You should have received a copy of the GNU General Public License       #
+# along with STP-Core. If not, see <http://www.gnu.org/licenses/>.        #
+#                                                                         #
+###########################################################################
+
+#
+# Author: Francesco Brun
+# Last modified: July, 8th 2016
+#
+
+import datetime
+import os
+import os.path
+import numpy
+import time
+
+from time import strftime
+from sys import argv, exit
+from glob import glob
+from h5py import File as getHDF5
+import stpio.tdf as tdf
+
+PIXIRAD_WIDTH = 512 # pixels
+PIXIRAD_HEIGHT = 402 # pixels
+PIXIRAD_SKIP = 12 # (24 bytes, i.e.  12 pixels)
+
+def _read_pixirad_data(filename):
+	"""Read the PIXIRAD raw data.
+   
+	"""
+	# Possible types:
+	# '>i2' (big-endian 16-bit signed int)
+	# '<i2' (little-endian 16-bit signed int)
+	# '<u2' (little-endian 16-bit unsigned int)
+	# '>u2' (big-endian 16-bit unsigned int)
+	data = numpy.fromfile(filename, dtype='<u2')	
+
+	# Skip 24-bytes over each projection:
+	size = round(data.shape[0] / (PIXIRAD_WIDTH * PIXIRAD_HEIGHT + PIXIRAD_SKIP))
+	a = numpy.arange(0,PIXIRAD_SKIP)
+	aa = numpy.tile(a,(size,1))
+	b = (PIXIRAD_WIDTH * PIXIRAD_HEIGHT) * numpy.arange(0,aa.shape[0])
+	bb = numpy.tile(b.T,(aa.shape[1],1))
+	idx = (aa + bb.T).flatten()
+	data = numpy.delete(data,idx)
+
+	# Reshape and flip:
+	data = numpy.reshape(data, (PIXIRAD_HEIGHT, PIXIRAD_WIDTH, size),order='F')
+	data = data[::-1,:,:]
+	#data = numpy.transpose(data, (1, 0, 2))
+
+	return data
+
+
+def _process_dset(filename, dset, dset_offset, provenance_dset, provenance_offset, time_offset, prefix, crop_top, crop_bottom, crop_left, crop_right, logfilename, int_from=0, int_to=-1):
+
+	# Read the whole dataset into memory:
+	data = _read_pixirad_data(filename)
+
+	# Determine number of expected projections:
+	num_proj = data.shape[2]	
+	
+	# Read first projection:
+	t1 = time.time()
+	im = data[:,:,0]
+	im = im[crop_top:im.shape[0] - crop_bottom,crop_left:im.shape[1] - crop_right]	
+	
+	# Set minimum and maximum:
+	tmp = im[:].astype(numpy.float32)
+	tmp = tmp[numpy.nonzero(numpy.isfinite(tmp))]	
+	if (numpy.amin(tmp[:]) < float(dset.attrs['min'])):
+		dset.attrs['min'] = str(numpy.amin(tmp[:]))
+	if (numpy.amax(tmp[:]) > float(dset.attrs['max'])):
+		dset.attrs['max'] = str(numpy.amax(tmp[:]))	
+	
+	# Check extrema (int_to == -1 means all files) for the projections:
+	if ((int_to >= num_proj) or (int_to <= 0)):
+		int_to = num_proj - 1
+	if ((int_from >= num_proj) or (int_from < 0)):
+		int_from = 0	
+		
+	# Process first projection (fill HDF5):
+	i = 0
+	first_index = int(provenance_dset.attrs['first_index'])	
+						
+	# Save processed image to HDF5 file:
+	if (i >= int_from) and (i <= int_to):	
+		tdf.write_tomo(dset, i + dset_offset - int_from,im)	
+		
+		# Save provenance metadata:
+		t = time.time() + time_offset * 3600			
+		provenance_dset["filename", provenance_offset + i - int_from] = prefix + '_' + str(i + dset_offset + first_index).zfill(4) 
+		provenance_dset["timestamp", provenance_offset + i - int_from] = numpy.string_(datetime.datetime.fromtimestamp(t).strftime('%Y-%m-%d %H:%M:%S.%f')[:-3])
+				
+		# Print out execution time:
+		t2 = time.time()
+		log = open(logfilename,"a")		
+		log.write(os.linesep + "\t%s converted in %0.3f sec." % (provenance_dset["filename", provenance_offset + i - int_from], t2 - t1))			
+		log.close()		
+
+	try:	
+		
+		# Read all the other projections:
+		for i in range(1,num_proj):	
+				
+			# Start record time:
+			t1 = time.time()
+			
+			im = data[:,:,i]
+			im = im[crop_top:im.shape[0] - crop_bottom,crop_left:im.shape[1] - crop_right]	
+									
+			# Set minimum and maximum:
+			tmp = im[:].astype(numpy.float32)
+			tmp = tmp[numpy.nonzero(numpy.isfinite(tmp))]	
+			if (float(numpy.amin(tmp[:])) < float(dset.attrs['min'])):				
+				dset.attrs['min'] = str(numpy.amin(tmp[:]))				
+			if (float(numpy.amax(tmp[:])) > float(dset.attrs['max'])):				
+				dset.attrs['max'] = str(numpy.amax(tmp[:]))				
+			
+			# Process first projection (fill HDF5):
+			i = i + 1
+								
+			# Save processed image to HDF5 file:
+			if (i >= int_from) and (i <= int_to):				
+				tdf.write_tomo(dset, i + dset_offset - int_from,im)	
+				
+				# Save provenance metadata:
+				t = time.time() + time_offset * 3600			
+				provenance_dset["filename", provenance_offset + i - int_from] = prefix + '_' + str(i + dset_offset + first_index - int_from).zfill(4)
+				provenance_dset["timestamp", provenance_offset + i - int_from] = numpy.string_(datetime.datetime.fromtimestamp(t).strftime('%Y-%m-%d %H:%M:%S.%f')[:-3])
+							
+				# Print out execution time:
+				t2 = time.time()
+				log = open(logfilename,"a")		
+				log.write(os.linesep + "\t%s converted in %0.3f sec." % (provenance_dset["filename", provenance_offset + i - int_from], t2 - t1))			
+				log.close()	
+			
+	except  Exception, e:	
+		pass
+
+	return provenance_offset + i + 1
+
+
+def main(argv):          
+	"""
+	Converts a set of HIS files into a TDF file (HDF5 Tomo Data Format).
+		
+	Parameters
+	----------
+	from : scalar, integer
+		among all the projections (or sinogram) files, a subset of files can be specified, 
+		ranging from the parameter "from" to the parameter "to" (see next). In most 
+		cases, this parameter is 0.
+		
+	to : scalar, integer
+		among all the projections (or sinogram) files, a subset of files can be specified, 
+		ranging from the parameter "from" (see previous parameter) to the parameter 
+		"to". If the value -1 is specified, all the projection files will be considered.
+		
+	data_in_path : string
+		path of the HIS file of the projections (e.g. "Z:\\sample1.his").
+	
+	dark_in_path : string
+		path of the HIS file of the flat (e.g. "Z:\\sample1_dark.his").
+		
+	flat_in_path : string
+		path of the HIS file of the flat (e.g. "Z:\\sample1_flat.his").
+			
+	postdark_in_path : string
+		path of the HIS file of the flat (e.g. "Z:\\sample1_postdark.his").
+		
+	postflat_in_path : string
+		path of the HIS file of the flat (e.g. "Z:\\sample1_postflat.his").
+		
+	out_file : string
+		path with filename of the TDF to create (e.g. "Z:\\sample1.tdf"). WARNING: the program 
+		does NOT automatically create non-existing folders and subfolders specified in the path. 
+		Moreover, if a file with the same name already exists it will be automatically deleted and 
+		overwritten.
+		
+	crop_top : scalar, integer
+		during the conversion, images can be cropped if required. This parameter specifies the number 
+		of pixels to crop from the top of the image. Leave 0 for no cropping.
+		
+	crop_bottom : scalar, integer
+		during the conversion, images can be cropped if required. This parameter specifies the number 
+		of pixels to crop from the bottom of the image. Leave 0 for no cropping.
+		
+	crop_left : scalar, integer
+		during the conversion, images can be cropped if required. This parameter specifies the number 
+		of pixels to crop from the left of the image. Leave 0 for no cropping.
+		
+	crop_right : scalar, integer
+		during the conversion, images can be cropped if required. This parameter specifies the number 
+		of pixels to crop from the right of the image. Leave 0 for no cropping.	
+
+	privilege_sino : boolean string
+		specify the string "True" if the TDF will privilege a fast read/write of sinograms (the most common 
+		case), "False" for fast read/write of projections.
+		
+	compression : scalar, integer
+		an integer value in the range of [1,9] to be used as GZIP compression factor in the HDF5 file, where
+		1 is the minimum compression (and maximum speed) and 9 is the maximum (and slow) compression.
+		The value 0 can be specified with the meaning of no compression.
+		
+	log_file : string
+		path with filename of a log file (e.g. "R:\\log.txt") where info about the conversion is reported.
+
+	Returns
+	-------
+	no return value
+		
+	Example
+	-------
+	Example call to convert all the tomo*.tif* projections to a TDF with no cropping and minimum compression:
+	
+		python his2tdf.py 0 -1 "tomo.his" "dark.his" "flat.his" "postdark.his" "postflat.his" "dataset.tdf" 0 0 0 0 
+		True True 1 "S:\\conversion.txt"
+	
+	Requirements
+	-------
+	- Python 2.7 with the latest NumPy, SciPy, H5Py.
+	- tdf.py
+	
+	Tests
+	-------
+	Tested with WinPython-64bit-2.7.6.3 (Windows) and Anaconda 2.1.0 (Linux 64-bit).		
+	
+	"""	
+	
+	# Get the from and to number of files to process:
+	int_from = int(argv[0])
+	int_to = int(argv[1]) # -1 means "all files"
+	   
+	# Get paths:
+	tomo_file = argv[2]
+	flat_file = argv[3]
+	outfile = argv[4]
+	
+	crop_top = int(argv[5])  # 0 for all means "no cropping"
+	crop_bottom = int(argv[6])
+	crop_left = int(argv[7])
+	crop_right = int(argv[8])
+		
+	projorder = argv[9]
+	if projorder == "True":
+		projorder = True
+	else:
+		projorder = False
+		
+	privilege_sino = argv[10]
+	if privilege_sino == "True":
+		privilege_sino = True
+	else:
+		privilege_sino = False
+
+	# Get compression factor:
+	compr_opts = int(argv[11])
+	compressionFlag = True
+	if (compr_opts <= 0):
+		compressionFlag = False
+	elif (compr_opts > 9):
+		compr_opts = 9		
+		
+	logfilename = argv[12]		
+
+	# Get the files in inpath:
+	log = open(logfilename,"w")	
+	log.write(os.linesep + "\tInput PiXirad files:")	
+	log.write(os.linesep + "\t\tProjections: %s" % (tomo_file))
+	log.write(os.linesep + "\t\tFlat: %s" % (flat_file))
+	log.write(os.linesep + "\tOutput TDF file: %s" % (outfile))		
+	log.write(os.linesep + "\t--------------")			
+	log.write(os.linesep + "\tCropping:")
+	log.write(os.linesep + "\t\tTop: %d pixels" % (crop_top))
+	log.write(os.linesep + "\t\tBottom: %d pixels" % (crop_bottom))
+	log.write(os.linesep + "\t\tLeft: %d pixels" % (crop_left))
+	log.write(os.linesep + "\t\tRight: %d pixels" % (crop_right))
+	if (int_to != -1):
+		log.write(os.linesep + "\tThe subset [%d,%d] of the input files will be considered." % (int_from, int_to))
+	
+	if (projorder):
+		log.write(os.linesep + "\tProjection order assumed.")
+	else:
+		log.write(os.linesep + "\tSinogram order assumed.")
+		
+	if (privilege_sino):
+		log.write(os.linesep + "\tFast I/O for sinograms privileged.")
+	else:
+		log.write(os.linesep + "\tFast I/O for projections privileged.")
+	
+	if (compressionFlag):
+		log.write(os.linesep + "\tTDF compression factor: %d" % (compr_opts))
+	else:
+		log.write(os.linesep + "\tTDF compression: none.")
+
+	log.write(os.linesep + "\t--------------")	
+	log.close()
+	
+	# Remove a previous copy of output:
+	if os.path.exists(outfile):
+		log = open(logfilename,"a")
+		log.write(os.linesep + "\tWarning: an output file with the same name was overwritten.")
+		os.remove(outfile)
+		log.close()	
+			
+	# Check input file:
+	if not os.path.exists(tomo_file):		
+		log = open(logfilename,"a")
+		log.write(os.linesep + "\tError: input PiXirad file for projections does not exist. Process will end.")				
+		log.close()			
+		exit()	
+		
+	# First time get the plan:
+	log = open(logfilename,"a")
+	log.write(os.linesep + "\tPreparing the work plan...")	
+	log.close()
+			
+	# Get info from projection file:
+	data = _read_pixirad_data(tomo_file)
+	dim1 = data.shape[0]
+	dim2 = data.shape[1]
+	dimz = data.shape[2]
+	dtype = data.dtype
+	
+	
+	if (((int_to - int_from + 1) > 0) and ((int_to - int_from + 1) < dimz)):
+		dimz = int_to - int_from + 1
+						
+	#dsetshape = (num_files,) + im.shape
+	if projorder:			
+		#dsetshape = tdf.get_dset_shape(privilege_sino, im.shape[1], im.shape[0],
+		#num_files)
+		dsetshape = tdf.get_dset_shape(dim1 - crop_left - crop_right, dim2 - crop_top - crop_bottom, dimz)
+	else:
+		#dsetshape = tdf.get_dset_shape(privilege_sino, im.shape[1], num_files,
+		#im.shape[0])
+		dsetshape = tdf.get_dset_shape(dim1 - crop_left - crop_right, dim2 - crop_top - crop_bottom, dimz)
+		
+	f = getHDF5(outfile, 'w')
+			
+	f.attrs['version'] = '1.0'
+	f.attrs['implements'] = "exchange:provenance"
+	echange_group = f.create_group('exchange')			
+			
+	if (compressionFlag):
+		dset = f.create_dataset('exchange/data', dsetshape, dtype, chunks=tdf.get_dset_chunks(dim1 - crop_left - crop_right), \
+            compression="gzip", compression_opts=compr_opts, shuffle=True, fletcher32=True)
+	else:
+		dset = f.create_dataset('exchange/data', dsetshape, dtype)		
+
+	if privilege_sino:			
+		dset.attrs['axes'] = "y:theta:x"
+	else:
+		dset.attrs['axes'] = "theta:y:x"
+			
+	dset.attrs['min'] = str(numpy.iinfo(dtype).max)
+	dset.attrs['max'] = str(numpy.iinfo(dtype).min)
+
+	# Get the total number of files to consider:
+	num_flats = 0
+			
+	if os.path.exists(flat_file):	
+		data = _read_pixirad_data(flat_file)
+		dim1 = data.shape[0]
+		dim2 = data.shape[1]
+		num_flats = data.shape[2]
+		dtype = data.dtype
+			
+	tot_files = dimz + num_flats
+				
+	# Create provenance dataset:
+	provenance_dt = numpy.dtype([("filename", numpy.dtype("S255")), ("timestamp",  numpy.dtype("S255"))])
+	metadata_group = f.create_group('provenance')
+	provenance_dset = metadata_group.create_dataset('detector_output', (tot_files,), dtype=provenance_dt)	
+			
+	provenance_dset.attrs['tomo_prefix'] = 'tomo'
+	provenance_dset.attrs['flat_prefix'] = 'flat'
+	provenance_dset.attrs['first_index'] = 1
+			
+	# Handle the metadata:
+	if (os.path.isfile(os.path.dirname(tomo_file) + os.sep + 'logfile.xml')):
+		with open(os.path.dirname(tomo_file) + os.sep + 'logfile.xml', "r") as file:
+			xml_command = file.read()
+		tdf.parse_metadata(f, xml_command)				
+
+	# Print out about plan preparation:
+	first_done = True
+	log = open(logfilename,"a")
+	log.write(os.linesep + "\tWork plan prepared succesfully.")	
+	log.close()				
+		
+		
+	# Get the data from Pixirad:
+	if (num_flats > 0) or (num_postflats > 0):
+		
+		#dsetshape = (num_files,) + im.shape
+		if projorder:			
+			#dsetshape = tdf.get_dset_shape(privilege_sino, im.shape[1], im.shape[0],
+			#num_files)
+			dsetshape = tdf.get_dset_shape(dim1 - crop_left - crop_right, dim2 - crop_top - crop_bottom, num_flats)
+		else:
+			#dsetshape = tdf.get_dset_shape(privilege_sino, im.shape[1], num_files,
+			#im.shape[0])
+			dsetshape = tdf.get_dset_shape(dim1 - crop_left - crop_right, dim2 - crop_top - crop_bottom, num_flats)
+		
+		if (compressionFlag):
+			flatdset = f.create_dataset('exchange/data_white', dsetshape, dtype, chunks=tdf.get_dset_chunks(dim1 - crop_left - crop_right), compression="gzip", compression_opts=compr_opts, shuffle=True, fletcher32=True)
+		else:
+			flatdset = f.create_dataset('exchange/data_white', dsetshape, dtype)		
+
+		if privilege_sino:			
+			flatdset.attrs['axes'] = "y:theta:x"
+		else:
+			flatdset.attrs['axes'] = "theta:y:x"
+			
+		flatdset.attrs['min'] = str(numpy.iinfo(dtype).max)
+		flatdset.attrs['max'] = str(numpy.iinfo(dtype).min)
+		
+	else:
+		log = open(logfilename,"a")
+		log.write(os.linesep + "\tWarning: flat images (if any) not considered.")		
+		log.close()
+			
+	# Process the Pixirad data:
+	provenance_offset = 0
+	
+	# (Stupid idea for time offset):
+	if num_flats > 0:
+		provenance_offset = _process_dset(flat_file, flatdset, 0, provenance_dset, provenance_offset, 
+			0, 'flat', crop_top, crop_bottom, crop_left, crop_right, logfilename)	
+	
+	provenance_offset = _process_dset(tomo_file, dset, 0, provenance_dset, provenance_offset, 
+			0, 'tomo', crop_top, crop_bottom, crop_left, crop_right, logfilename, int_from, int_to)	
+
+	
+	# Close TDF:
+	f.close()	
+	
+if __name__ == "__main__":
+
+	main(argv[1:])

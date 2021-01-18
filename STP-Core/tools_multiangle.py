@@ -34,6 +34,8 @@ from numpy import empty, reshape, log as nplog, arange, squeeze, fromfile, ndarr
 from time import time
 from multiprocessing import Process, Lock
 
+from scipy.misc import imresize #scipy 0.12
+
 # pystp-specific:
 from preprocess.extfov_correction import extfov_correction
 from preprocess.flat_fielding import flat_fielding
@@ -48,7 +50,8 @@ from reconstruct.rec_fista_tv import recon_fista_tv
 from reconstruct.rec_mr_fbp import recon_mr_fbp
 from reconstruct.rec_gridrec import recon_gridrec
 
-from postprocess.postprocess import postprocess
+from postprocess.polarfilter import polarfilter
+from postprocess.croprescale import croprescale
 
 from utils.padding import upperPowerOfTwo, padImage, padSmoothWidth
 from utils.caching import cache2plan, plan2cache
@@ -157,7 +160,8 @@ def reconstruct(im, angles, offset, logtransform, param1, circle, scale, pad, me
 		marg  = (n_pad - dim_o) / 2	
 	
 		# Pad image:
-		im_f = padSmoothWidth(im_f, n_pad)		
+		#im_f = padSmoothWidth(im_f, n_pad)	        
+		im_f = padImage(im_f, im_f.shape[0], n_pad)		
 
 	# Loop for all the required angles:
 	for i in range(int(round(start)), int(round(end)) + 1):      	
@@ -192,7 +196,7 @@ def reconstruct(im, angles, offset, logtransform, param1, circle, scale, pad, me
 
 		# Apply post-processing (if required):
 		if postprocess_required:
-			im_f = postprocess(im_f, convert_opt, crop_opt)
+			im_f = croprescale(im_f, convert_opt, crop_opt)
 		else:
 			# Create the circle mask for fancy output:
 			if (circle == True):
@@ -344,7 +348,7 @@ def process(sino_idx, num_sinos, infile, outpath, preprocessing_required, corr_p
 
 	# Log infos:
 	log = open(logfilename,"a")	
-	log.write(linesep + "\tPerforming reconstruction with multiple centers of rotation...")			
+	log.write(linesep + "\tPerforming reconstruction with a variable number of projections...")			
 	log.write(linesep + "\t--------------")		
 	log.close()	
 
